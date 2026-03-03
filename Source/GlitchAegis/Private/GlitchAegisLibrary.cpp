@@ -57,3 +57,4 @@ void UGlitchAegisLibrary::SaveToCloud(FGlitchSaveData SaveData) {
         TCHAR_TO_UTF8(*InstallId),
         Data
     );
+}

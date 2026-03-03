@@ -780,4 +780,41 @@ namespace GlitchSDK
         return responseString;
     }
 
+    std::string ResolveSaveConflict(
+        const std::string& titleToken, 
+        const std::string& titleId, 
+        const std::string& installId, 
+        const std::string& saveId, 
+        const std::string& conflictId, 
+        const std::string& choice
+    ) {
+        CURL* curl = curl_easy_init();
+        std::string responseString;
+        if (!curl) return "Failed to init curl";
+
+        std::string url = "https://api.glitch.fun/api/titles/" + titleId + "/installs/" + installId + "/saves/" + saveId + "/resolve";
+        
+        std::stringstream json;
+        json << "{"
+             << R"("conflict_id":")" << conflictId << R"(",)"
+             << R"("choice":")" << choice << R"(")"
+             << "}";
+
+        struct curl_slist *headers = NULL;
+        headers = curl_slist_append(headers, "Content-Type: application/json");
+        headers = curl_slist_append(headers, ("Authorization: Bearer " + titleToken).c_str());
+
+        curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+        curl_easy_setopt(curl, CURLOPT_POST, 1L);
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, json.str().c_str());
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, Internal::WriteCallback);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &responseString);
+
+        curl_easy_perform(curl);
+        curl_easy_cleanup(curl);
+        curl_slist_free_all(headers);
+        return responseString;
+    }
+
 } // namespace GlitchSDK
