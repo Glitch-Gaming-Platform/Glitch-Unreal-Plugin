@@ -33,3 +33,27 @@ void UGlitchAegisLibrary::RecordGameEvent(FString Step, FString Action, FString 
 
     GlitchSDK::RecordEvent(TCHAR_TO_UTF8(*Settings->TitleToken), TCHAR_TO_UTF8(*Settings->TitleId), Event);
 }
+
+void UGlitchAegisLibrary::SaveToCloud(FGlitchSaveData SaveData) {
+    const UGlitchAegisSettings* Settings = GetDefault<UGlitchAegisSettings>();
+    FString InstallId;
+    FParse::Value(FCommandLine::Get(), TEXT("install_id="), InstallId);
+
+    if (InstallId.IsEmpty()) return;
+
+    GlitchSDK::GameSaveData Data;
+    Data.SlotIndex = SaveData.SlotIndex;
+    Data.PayloadBase64 = TCHAR_TO_UTF8(*SaveData.PayloadBase64);
+    Data.SaveType = TCHAR_TO_UTF8(*SaveData.SaveType);
+    Data.ClientTimestamp = TCHAR_TO_UTF8(*FDateTime::UtcNow().ToIso8601());
+    
+    // Note: Developer should ideally provide a checksum, 
+    // but for no-code we can calculate a simple one here if needed.
+    Data.Checksum = "auto-generated"; 
+
+    GlitchSDK::StoreSave(
+        TCHAR_TO_UTF8(*Settings->TitleToken),
+        TCHAR_TO_UTF8(*Settings->TitleId),
+        TCHAR_TO_UTF8(*InstallId),
+        Data
+    );

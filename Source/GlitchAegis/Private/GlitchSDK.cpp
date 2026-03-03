@@ -720,4 +720,64 @@ namespace GlitchSDK
         return responseString;
     }
 
+    std::string RecordEventsBulk(const std::string& titleToken, const std::string& titleId, const std::vector<GameEventData>& events)
+    {
+        CURL* curl = curl_easy_init();
+        std::string responseString;
+        if (!curl) return "Failed to init curl";
+
+        std::string url = "https://api.glitch.fun/api/titles/" + titleId + "/events/bulk";
+
+        std::stringstream json;
+        json << R"({"events":[)";
+        for (size_t i = 0; i < events.size(); ++i) {
+            json << "{"
+                 << R"("game_install_id":")" << events[i].GameInstallID << R"(",)"
+                 << R"("step_key":")" << Internal::EscapeJSON(events[i].StepKey) << R"(",)"
+                 << R"("action_key":")" << Internal::EscapeJSON(events[i].ActionKey) << R"(")";
+            if(!events[i].MetadataJSON.empty()) json << R"(,"metadata":)" << events[i].MetadataJSON;
+            json << "}";
+            if (i < events.size() - 1) json << ",";
+        }
+        json << "]}";
+
+        struct curl_slist *headers = NULL;
+        headers = curl_slist_append(headers, "Content-Type: application/json");
+        headers = curl_slist_append(headers, ("Authorization: Bearer " + titleToken).c_str());
+
+        curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, json.str().c_str());
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, Internal::WriteCallback);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &responseString);
+
+        curl_easy_perform(curl);
+        curl_easy_cleanup(curl);
+        return responseString;
+    }
+
+    std::string UpdateWishlistScore(const std::string& userJwt, const std::string& titleId, int score)
+    {
+        CURL* curl = curl_easy_init();
+        std::string responseString;
+        std::string url = "https://api.glitch.fun/api/titles/" + titleId + "/wishlist/score";
+
+        std::stringstream json;
+        json << R"({"score":)" << score << "}";
+
+        struct curl_slist *headers = NULL;
+        headers = curl_slist_append(headers, "Content-Type: application/json");
+        headers = curl_slist_append(headers, ("Authorization: Bearer " + userJwt).c_str());
+
+        curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, json.str().c_str());
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, Internal::WriteCallback);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &responseString);
+
+        curl_easy_perform(curl);
+        curl_easy_cleanup(curl);
+        return responseString;
+    }
+
 } // namespace GlitchSDK
