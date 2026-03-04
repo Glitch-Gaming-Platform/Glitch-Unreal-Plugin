@@ -1,23 +1,18 @@
 {
-    "FileVersion": 3,
-    "Version": 1,
-    "VersionName": "0.0.3",
-    "FriendlyName": "Glitch Gaming",
-    "Description": "DRM, payout heartbeat, analytics, and attribution integration for the Glitch Gaming Platform.",
-    "Category": "Analytics",
-    "CreatedBy": "Glitch Gaming Platform",
-    "CreatedByURL": "https://glitch.fun",
-    "DocsURL": "https://glitch.fun",
-    "SupportURL": "https://discord.gg/RPYU9KgEmU",
-    "CanContainContent": false,
-    "IsBetaVersion": false,
-    "IsExperimentalVersion": false,
-    "Installed": false,
-    "Modules": [
-        {
-            "Name": "GlitchAegis",
-            "Type": "Runtime",
-            "LoadingPhase": "Default"
-        }
-    ]
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "0.1",
+	"FriendlyName": "Glitch Gaming",
+	"Description": "No-code integration for Glitch Payouts, DRM, and Cloud Saves.",
+	"Category": "Analytics",
+	"CreatedBy": "Glitch Gaming",
+	"EnabledByDefault": true,
+	"CanContainContent": true,
+	"Modules": [
+		{
+			"Name": "GlitchAegis",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	]
 }
