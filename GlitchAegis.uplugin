@@ -1,13 +1,19 @@
 {
 	"FileVersion": 3,
 	"Version": 1,
-	"VersionName": "0.1",
+	"VersionName": "1.0.0",
 	"FriendlyName": "Glitch Gaming",
-	"Description": "No-code integration for Glitch Payouts, DRM, and Cloud Saves.",
+	"Description": "No-code integration for Glitch payouts, DRM, analytics, and attribution.",
 	"Category": "Analytics",
-	"CreatedBy": "Glitch Gaming",
+	"CreatedBy": "Glitch Gaming Platform",
+	"CreatedByURL": "https://glitch.fun",
+	"DocsURL": "https://glitch.fun",
+	"SupportURL": "https://discord.gg/RPYU9KgEmU",
 	"EnabledByDefault": true,
-	"CanContainContent": true,
+	"CanContainContent": false,
+	"IsBetaVersion": false,
+	"IsExperimentalVersion": false,
+	"Installed": false,
 	"Modules": [
 		{
 			"Name": "GlitchAegis",

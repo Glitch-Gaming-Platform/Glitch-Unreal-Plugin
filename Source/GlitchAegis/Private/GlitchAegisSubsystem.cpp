@@ -43,7 +43,7 @@ void UGlitchAegisSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 			Settings->TitleToken,
 			Settings->TitleId,
 			D,
-			GlitchSDK::FOnGlitchResponse::CreateLambda([](bool bSuccess, const FString& Body)
+			FOnGlitchResponse::CreateLambda([](bool bSuccess, const FString& Body)
 			{
 				if (bSuccess)
 					UE_LOG(LogTemp, Log, TEXT("GlitchAegis: Install/session registered."));
@@ -90,7 +90,7 @@ void UGlitchAegisSubsystem::RunDrmValidation()
 		Settings->TitleToken,
 		Settings->TitleId,
 		CachedInstallId,
-		GlitchSDK::FOnGlitchResponse::CreateLambda(
+		FOnGlitchResponse::CreateLambda(
 			[WeakThis](bool bSuccess, const FString& Body)
 			{
 				UGlitchAegisSubsystem* Self = WeakThis.Get();
@@ -159,7 +159,7 @@ void UGlitchAegisSubsystem::OnHeartbeatTimerTick()
 		Settings->TitleId,
 		CachedInstallId,
 		TEXT(""),
-		GlitchSDK::FOnGlitchResponse::CreateLambda([](bool bSuccess, const FString& Body)
+		FOnGlitchResponse::CreateLambda([](bool bSuccess, const FString& Body)
 		{
 			if (!bSuccess)
 				UE_LOG(LogTemp, Warning, TEXT("GlitchAegis: Heartbeat failed: %s"), *Body);

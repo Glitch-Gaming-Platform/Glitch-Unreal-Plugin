@@ -360,7 +360,10 @@ namespace GlitchSDK
 			HMODULE hNtdll = GetModuleHandleW(L"ntdll.dll");
 			if (hNtdll)
 			{
-				auto pfn = reinterpret_cast<RtlGetVersionPtr>(GetProcAddress(hNtdll, "RtlGetVersion"));
+				FARPROC raw = GetProcAddress(hNtdll, "RtlGetVersion");
+PRAGMA_DISABLE_UNSAFE_TYPECAST_WARNINGS
+				RtlGetVersionPtr pfn = reinterpret_cast<RtlGetVersionPtr>(raw);
+PRAGMA_ENABLE_UNSAFE_TYPECAST_WARNINGS
 				if (pfn)
 				{
 					RTL_OSVERSIONINFOW osInfo = {};

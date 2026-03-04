@@ -33,7 +33,7 @@ void UGlitchAegisLibrary::ValidateLicenseAsync(FOnLicenseValidated OnComplete)
 		Settings->TitleToken,
 		Settings->TitleId,
 		InstallId,
-		GlitchSDK::FOnGlitchResponse::CreateLambda(
+		FOnGlitchResponse::CreateLambda(
 			[OnComplete](bool bSuccess, const FString& Body)
 			{
 				FString UserName;
@@ -73,7 +73,7 @@ bool UGlitchAegisLibrary::ValidateLicense(FString& OutUserName)
 		Settings->TitleToken,
 		Settings->TitleId,
 		InstallId,
-		GlitchSDK::FOnGlitchResponse::CreateLambda([](bool bSuccess, const FString& Body)
+		FOnGlitchResponse::CreateLambda([](bool bSuccess, const FString& Body)
 		{
 			if (bSuccess)
 				UE_LOG(LogTemp, Log, TEXT("GlitchAegis: License validated."));
@@ -106,7 +106,7 @@ void UGlitchAegisLibrary::RecordGameEvent(FString Step, FString Action, FString 
 		Settings->TitleToken,
 		Settings->TitleId,
 		Event,
-		GlitchSDK::FOnGlitchResponse::CreateLambda([](bool bSuccess, const FString& Body)
+		FOnGlitchResponse::CreateLambda([](bool bSuccess, const FString& Body)
 		{
 			if (!bSuccess)
 				UE_LOG(LogTemp, Warning, TEXT("GlitchAegis: RecordGameEvent failed: %s"), *Body);
@@ -141,7 +141,7 @@ void UGlitchAegisLibrary::RecordGameEventsBulk(const TArray<FGlitchEventData>& E
 		Settings->TitleToken,
 		Settings->TitleId,
 		SdkEvents,
-		GlitchSDK::FOnGlitchResponse::CreateLambda([](bool bSuccess, const FString& Body)
+		FOnGlitchResponse::CreateLambda([](bool bSuccess, const FString& Body)
 		{
 			if (!bSuccess)
 				UE_LOG(LogTemp, Warning, TEXT("GlitchAegis: RecordGameEventsBulk failed: %s"), *Body);
@@ -184,7 +184,7 @@ void UGlitchAegisLibrary::SaveToCloud(FGlitchSaveData SaveData)
 		Settings->TitleId,
 		InstallId,
 		Data,
-		GlitchSDK::FOnGlitchResponse::CreateLambda([](bool bSuccess, const FString& Body)
+		FOnGlitchResponse::CreateLambda([](bool bSuccess, const FString& Body)
 		{
 			if (bSuccess)
 				UE_LOG(LogTemp, Log, TEXT("GlitchAegis: SaveToCloud succeeded."));
@@ -218,7 +218,7 @@ void UGlitchAegisLibrary::RecordPurchase(FGlitchPurchaseData PurchaseData)
 		Settings->TitleToken,
 		Settings->TitleId,
 		D,
-		GlitchSDK::FOnGlitchResponse::CreateLambda([](bool bSuccess, const FString& Body)
+		FOnGlitchResponse::CreateLambda([](bool bSuccess, const FString& Body)
 		{
 			if (bSuccess)
 				UE_LOG(LogTemp, Log, TEXT("GlitchAegis: RecordPurchase succeeded."));
@@ -246,7 +246,7 @@ void UGlitchAegisLibrary::VoidInstall(FString InstallUuid, bool bVoid, FOnGlitch
 		Settings->TitleId,
 		InstallUuid,
 		bVoid,
-		GlitchSDK::FOnGlitchResponse::CreateLambda(
+		FOnGlitchResponse::CreateLambda(
 			[OnComplete](bool bSuccess, const FString& Body)
 			{
 				OnComplete.ExecuteIfBound(bSuccess, Body);
@@ -283,7 +283,7 @@ void UGlitchAegisLibrary::SendFingerprintedInstall(FOnGlitchResult OnComplete)
 		Settings->TitleToken,
 		Settings->TitleId,
 		D,
-		GlitchSDK::FOnGlitchResponse::CreateLambda(
+		FOnGlitchResponse::CreateLambda(
 			[OnComplete](bool bSuccess, const FString& Body)
 			{
 				OnComplete.ExecuteIfBound(bSuccess, Body);
