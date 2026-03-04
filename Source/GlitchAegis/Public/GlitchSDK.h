@@ -94,6 +94,39 @@ namespace GlitchSDK
 		FString EventTimestamp;    // ISO-8601
 	};
 
+	// Install registration data (matches README + subsystem usage)
+	struct FInstallData
+	{
+		FString UserInstallId;
+		FString Platform;        // "steam", "epic", "windows", etc.
+		FString DeviceType;      // "desktop" etc. (optional)
+		FString GameVersion;     // optional
+
+		// Optional attribution (if you want it)
+		FString ReferralSource;
+		FString UtmSource;
+		FString UtmMedium;
+		FString UtmCampaign;
+		FString UtmContent;
+		FString UtmTerm;
+	};
+
+	// Wrapper API expected by Subsystem/README
+	void CreateInstall(
+		const FString& AuthToken,
+		const FString& TitleId,
+		const FInstallData& InstallData,
+		FOnGlitchResponse OnComplete,
+		const FFingerprintComponents* Fingerprint /*=nullptr*/);
+
+	// Install voiding API expected by Blueprint library/README
+	void VoidInstall(
+		const FString& AuthToken,
+		const FString& TitleId,
+		const FString& InstallUuid,
+		bool bVoid,
+		FOnGlitchResponse OnComplete);
+
 	// -------------------------------------------------------------------------
 	// Delegate types — all HTTP calls are async; bind these to receive results
 	// -------------------------------------------------------------------------

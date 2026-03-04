@@ -627,4 +627,58 @@ namespace GlitchSDK
 		return Out;
 	}
 
+	void CreateInstall(
+		const FString& AuthToken,
+		const FString& TitleId,
+		const FInstallData& D,
+		FOnGlitchResponse OnComplete,
+		const FFingerprintComponents* Fingerprint)
+	{
+		const FString Url = FString::Printf(TEXT("%s/titles/%s/installs"), *BaseUrl, *TitleId);
+
+		FString Body = FString::Printf(
+			TEXT("{\"user_install_id\":\"%s\""),
+			*Internal::EscapeJSON(D.UserInstallId)
+		);
+
+		if (!D.Platform.IsEmpty())
+			Body += FString::Printf(TEXT(",\"platform\":\"%s\""), *Internal::EscapeJSON(D.Platform));
+		if (!D.DeviceType.IsEmpty())
+			Body += FString::Printf(TEXT(",\"device_type\":\"%s\""), *Internal::EscapeJSON(D.DeviceType));
+		if (!D.GameVersion.IsEmpty())
+			Body += FString::Printf(TEXT(",\"game_version\":\"%s\""), *Internal::EscapeJSON(D.GameVersion));
+
+		if (!D.ReferralSource.IsEmpty())
+			Body += FString::Printf(TEXT(",\"referral_source\":\"%s\""), *Internal::EscapeJSON(D.ReferralSource));
+
+		// Optional UTM fields if your backend accepts them (safe to omit if empty)
+		if (!D.UtmSource.IsEmpty())   Body += FString::Printf(TEXT(",\"utm_source\":\"%s\""), *Internal::EscapeJSON(D.UtmSource));
+		if (!D.UtmMedium.IsEmpty())   Body += FString::Printf(TEXT(",\"utm_medium\":\"%s\""), *Internal::EscapeJSON(D.UtmMedium));
+		if (!D.UtmCampaign.IsEmpty()) Body += FString::Printf(TEXT(",\"utm_campaign\":\"%s\""), *Internal::EscapeJSON(D.UtmCampaign));
+		if (!D.UtmContent.IsEmpty())  Body += FString::Printf(TEXT(",\"utm_content\":\"%s\""), *Internal::EscapeJSON(D.UtmContent));
+		if (!D.UtmTerm.IsEmpty())     Body += FString::Printf(TEXT(",\"utm_term\":\"%s\""), *Internal::EscapeJSON(D.UtmTerm));
+
+		if (Fingerprint)
+		{
+			Body += FString::Printf(TEXT(",\"fingerprint_components\":%s"), *FingerprintToJSON(*Fingerprint));
+		}
+
+		Body += TEXT("}");
+
+		Internal::PostJSON(Url, AuthToken, Body, OnComplete);
+	}
+
+	void VoidInstall(
+		const FString& AuthToken,
+		const FString& TitleId,
+		const FString& InstallUuid,
+		bool bVoid,
+		FOnGlitchResponse OnComplete)
+	{
+		// If your backend uses a different route/body, update this to match.
+		const FString Url = FString::Printf(TEXT("%s/titles/%s/installs/%s/void"), *BaseUrl, *TitleId, *InstallUuid);
+		const FString Body = FString::Printf(TEXT("{\"void\":%s}"), bVoid ? TEXT("true") : TEXT("false"));
+		Internal::PostJSON(Url, AuthToken, Body, OnComplete);
+	}
+
 } // namespace GlitchSDK
