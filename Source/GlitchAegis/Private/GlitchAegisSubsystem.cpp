@@ -1,16 +1,14 @@
 #include "GlitchAegisSubsystem.h"
 #include "GlitchAegisSettings.h"
 #include "GlitchSDK.h"
-#include "Kismet/KismetSystemLibrary.h"
 
 void UGlitchAegisSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
 	Super::Initialize(Collection);
 
 	const UGlitchAegisSettings* Settings = GetDefault<UGlitchAegisSettings>();
-	
-	// 1. Try to find install_id from command line (passed by Glitch Launcher)
-	// Format: -install_id=UUID
+
+	// Try to find install_id from command line, e.g.: -install_id=UUID
 	if (FParse::Value(FCommandLine::Get(), TEXT("install_id="), CachedInstallId))
 	{
 		if (Settings->bEnableAutomaticHeartbeat)
@@ -22,17 +20,47 @@ void UGlitchAegisSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 
 void UGlitchAegisSubsystem::StartHeartbeatLoop()
 {
-	GetWorld()->GetTimerManager().SetTimer(HeartbeatTimerHandle, this, &UGlitchAegisSubsystem::OnHeartbeatTimerTick, 60.0f, true, 1.0f);
+	// Guard: GetWorld() can be null during editor startup or subsystem teardown
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("GlitchAegis: StartHeartbeatLoop called but GetWorld() is null. Heartbeat not started."));
+		return;
+	}
+
+	// Fire immediately after a 1-second grace period, then every 60 seconds.
+	// The timer callback is async-safe: the HTTP call never blocks the game thread.
+	World->GetTimerManager().SetTimer(
+		HeartbeatTimerHandle,
+		this,
+		&UGlitchAegisSubsystem::OnHeartbeatTimerTick,
+		60.0f,
+		/*bLoop=*/true,
+		/*FirstDelay=*/1.0f
+	);
 }
 
 void UGlitchAegisSubsystem::OnHeartbeatTimerTick()
 {
 	const UGlitchAegisSettings* Settings = GetDefault<UGlitchAegisSettings>();
-	
-	// Call the SDK SendHeartbeat
+
+	if (Settings->TitleToken.IsEmpty() || Settings->TitleId.IsEmpty() || CachedInstallId.IsEmpty())
+	{
+		return;
+	}
+
+	// Async — returns immediately; response handled in the lambda (game thread callback)
 	GlitchSDK::SendHeartbeat(
-		TCHAR_TO_UTF8(*Settings->TitleToken),
-		TCHAR_TO_UTF8(*Settings->TitleId),
-		TCHAR_TO_UTF8(*CachedInstallId)
+		Settings->TitleToken,
+		Settings->TitleId,
+		CachedInstallId,
+		/*AnalyticsSessionId=*/TEXT(""),
+		GlitchSDK::FOnGlitchResponse::CreateLambda([](bool bSuccess, const FString& Body)
+		{
+			if (!bSuccess)
+			{
+				UE_LOG(LogTemp, Warning, TEXT("GlitchAegis: Heartbeat failed: %s"), *Body);
+			}
+		})
 	);
 }

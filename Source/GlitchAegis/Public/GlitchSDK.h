@@ -1,246 +1,230 @@
 #pragma once
 
-#include <curl/curl.h>
-#include <string>
-#include <map>
-#include <vector>
+#include "CoreMinimal.h"
+#include "Http.h"
 
 /**
  * Glitch Gaming API Integration for Unreal Engine
- * 
- * This SDK provides functions to integrate with the Glitch Gaming analytics platform,
- * including install tracking, fingerprinting, and purchase recording.
+ *
+ * All HTTP calls are async and execute on the game thread via Unreal's FHttpModule.
+ * No libcurl dependency. No blocking calls.
  */
 
-namespace GlitchSDK 
+namespace GlitchSDK
 {
-    // Forward declarations
-    struct FingerprintComponents;
-    struct PurchaseData;
-    
-    /**
-     * Device fingerprint components for cross-platform user tracking
-     * All fields are optional - provide what's available on your platform
-     */
-    struct FingerprintComponents 
-    {
-        // Device information
-        std::string DeviceModel;        // e.g., "Dell XPS 15, Intel i7, RTX 3060"
-        std::string DeviceType;         // "desktop", "mobile", "console", etc.
-        std::string DeviceManufacturer; // e.g., "Dell", "NVIDIA"
-        
-        // Operating System
-        std::string OSName;             // e.g., "Windows", "Linux"
-        std::string OSVersion;          // e.g., "10.0.22621"
-        
-        // Display
-        std::string DisplayResolution;  // e.g., "1920x1080"
-        int DisplayDensity = 0;         // DPI, e.g., 96, 144
-        
-        // Hardware
-        std::string CPUModel;           // e.g., "Intel i7 12700H (14-core)"
-        int CPUCores = 0;               // Physical cores
-        std::string GPUModel;           // e.g., "NVIDIA RTX 3060 6GB"
-        int MemoryMB = 0;               // Total RAM in MB
-        
-        // Environment
-        std::string Language;           // e.g., "en-US"
-        std::string Timezone;           // e.g., "America/New_York"
-        std::string Region;             // e.g., "US"
-        
-        // Desktop-specific (for PC platforms)
-        std::vector<std::string> FormFactors; // e.g., {"Desktop"}
-        std::string Architecture;       // e.g., "x86"
-        std::string Bitness;           // e.g., "64"
-        std::string PlatformVersion;   // e.g., "10.0.22621"
-        bool IsWow64 = false;          // 32-bit process on 64-bit OS
-        
-        // Keyboard layout (highly recommended for cross-device tracking)
-        std::map<std::string, std::string> KeyboardLayout;
-        
-        // Identifiers
-        std::string AdvertisingID;     // IDFA/AAID if available
-        
-        FingerprintComponents() = default;
-    };
-    
-    /**
-     * Purchase/revenue data for tracking sales and LTV
-     */
-    struct PurchaseData 
-    {
-        std::string GameInstallID;      // Required: UUID of existing install
-        std::string PurchaseType;       // e.g., "in_app", "ad_revenue", "crypto"
-        float PurchaseAmount = 0.0f;    // Monetary value
-        std::string Currency;           // e.g., "USD", "EUR"
-        std::string TransactionID;      // 3rd-party transaction ID
-        std::string ItemSKU;            // Product SKU
-        std::string ItemName;           // Human-readable product name
-        int Quantity = 1;               // Number of units
-        std::string MetadataJSON;       // Additional data as JSON string
-        
-        PurchaseData() = default;
-        PurchaseData(const std::string& installID) : GameInstallID(installID) {}
-    };
+	// -------------------------------------------------------------------------
+	// Data Structures
+	// -------------------------------------------------------------------------
 
-    /**
-     * Data structure for Cloud Save slots
-     */
-    struct GameSaveData {
-        int SlotIndex;                  // 0-99
-        std::string PayloadBase64;      // Binary data encoded as Base64
-        std::string Checksum;           // SHA-256 of raw binary
-        int BaseVersion;                // The version currently on client (0 for new)
-        std::string SaveType;           // "manual", "auto", "checkpoint", "quicksave"
-        std::string ClientTimestamp;    // ISO-8601 format
-        std::string MetadataJSON;       // Optional extra info (level, map name, etc)
-    
-        GameSaveData() : SlotIndex(0), BaseVersion(0), SaveType("manual") {}
-    };
+	/** Device fingerprint components for cross-platform user tracking */
+	struct FFingerprintComponents
+	{
+		// Device
+		FString DeviceModel;
+		FString DeviceType;
+		FString DeviceManufacturer;
 
-    /**
-     * Data structure for Behavioral Telemetry
-     */
-    struct GameEventData {
-        std::string GameInstallID;      // UUID from handshake
-        std::string StepKey;            // e.g., "prologue", "boss_fight"
-        std::string ActionKey;          // e.g., "died", "item_crafted"
-        std::string MetadataJSON;       // Optional context
-        std::string EventTimestamp;     // ISO-8601
-    
-        GameEventData() {}
-    };
+		// OS
+		FString OSName;
+		FString OSVersion;
 
+		// Display
+		FString DisplayResolution;
+		int32 DisplayDensity = 0;
 
-    // Updated to include analyticsSessionId for idle/fraud detection
-    std::string SendHeartbeat(
-        const std::string& titleToken,
-        const std::string& titleId,
-        const std::string& installId,
-        const std::string& analyticsSessionId = ""
-    );
+		// Hardware
+		FString CPUModel;
+		int32 CPUCores = 0;
+		FString GPUModel;
+		int32 MemoryMB = 0;
 
-    // The Aegis Handshake: Verify license on startup
-    std::string ValidateInstall(
-        const std::string& titleToken,
-        const std::string& titleId,
-        const std::string& installId
-    );
-    
-    /**
-     * Core Functions
-     */
-    
-    /**
-     * Create a basic install record
-     * @param authToken Bearer token for authentication
-     * @param titleId UUID of the title/game
-     * @param userInstallId Unique persistent user/device identifier
-     * @param platform Platform identifier (steam, apple, android, etc.)
-     * @return Response string from the API
-     */
-    std::string CreateInstallRecord(
-        const std::string& authToken,
-        const std::string& titleId, 
-        const std::string& userInstallId,
-        const std::string& platform
-    );
-    
-    /**
-     * Create an install record with fingerprinting data
-     * @param authToken Bearer token for authentication
-     * @param titleId UUID of the title/game
-     * @param userInstallId Unique persistent user/device identifier
-     * @param platform Platform identifier
-     * @param fingerprint Device fingerprint components
-     * @param gameVersion Optional game version string
-     * @param referralSource Optional referral source
-     * @return Response string from the API
-     */
-    std::string CreateInstallRecordWithFingerprint(
-        const std::string& authToken,
-        const std::string& titleId,
-        const std::string& userInstallId,
-        const std::string& platform,
-        const FingerprintComponents& fingerprint,
-        const std::string& gameVersion = "",
-        const std::string& referralSource = ""
-    );
-    
-    /**
-     * Record a purchase/revenue event
-     * @param authToken Bearer token for authentication
-     * @param titleId UUID of the title/game
-     * @param purchaseData Purchase information
-     * @return Response string from the API
-     */
-    std::string RecordPurchase(
-        const std::string& authToken,
-        const std::string& titleId,
-        const PurchaseData& purchaseData
-    );
-    
-    /**
-     * Utility Functions
-     */
-    
-    /**
-     * Auto-collect system fingerprint components where possible
-     * This function attempts to gather device information automatically
-     * @return FingerprintComponents with available system data
-     */
-    FingerprintComponents CollectSystemFingerprint();
-    
-    /**
-     * Generate a canonical keyboard layout map for fingerprinting
-     * @return Map of key codes to characters based on current system layout
-     */
-    std::map<std::string, std::string> GenerateKeyboardLayout();
-    
-    /**
-     * Helper to convert fingerprint components to JSON
-     * @param fingerprint Components to convert
-     * @return JSON string representation
-     */
-    std::string FingerprintToJSON(const FingerprintComponents& fingerprint);
-    
-    /**
-     * Helper to convert purchase data to JSON
-     * @param purchase Purchase data to convert
-     * @return JSON string representation
-     */
-    std::string PurchaseToJSON(const PurchaseData& purchase);
+		// Environment
+		FString Language;
+		FString Timezone;
+		FString Region;
 
-    std::string ListSaves(const std::string& titleToken, const std::string& titleId, const std::string& installId);
+		// Desktop-specific
+		TArray<FString> FormFactors;
+		FString Architecture;
+		FString Bitness;
+		FString PlatformVersion;
+		bool bIsWow64 = false;
 
-    std::string StoreSave(const std::string& titleToken, const std::string& titleId, const std::string& installId, const GameSaveData& saveData);
+		// Keyboard layout: key code -> character
+		TMap<FString, FString> KeyboardLayout;
 
-    std::string ResolveSaveConflict(
-        const std::string& titleToken, 
-        const std::string& titleId, 
-        const std::string& installId, 
-        const std::string& saveId, 
-        const std::string& conflictId, 
-        const std::string& choice // "keep_server" or "use_client"
-    );
+		// Advertising ID
+		FString AdvertisingID;
+	};
 
-    // --- 3. Behavioral Telemetry ---
+	/** Purchase / revenue data */
+	struct FPurchaseData
+	{
+		FString GameInstallID;    // Required: UUID of existing install
+		FString PurchaseType;     // "in_app", "ad_revenue", "crypto"
+		float PurchaseAmount = 0.f;
+		FString Currency;
+		FString TransactionID;
+		FString ItemSKU;
+		FString ItemName;
+		int32 Quantity = 1;
+		FString MetadataJSON;
+	};
 
-    std::string RecordEvent(const std::string& titleToken, const std::string& titleId, const GameEventData& event);
+	/** Cloud save slot data */
+	struct FGameSaveData
+	{
+		int32 SlotIndex = 0;       // 0-99
+		FString PayloadBase64;
+		FString Checksum;          // SHA-256 of raw binary
+		int32 BaseVersion = 0;
+		FString SaveType = TEXT("manual");
+		FString ClientTimestamp;   // ISO-8601
+		FString MetadataJSON;
+	};
 
-    std::string RecordEventsBulk(const std::string& titleToken, const std::string& titleId, const std::vector<GameEventData>& events);
+	/** Behavioral telemetry event */
+	struct FGameEventData
+	{
+		FString GameInstallID;
+		FString StepKey;
+		FString ActionKey;
+		FString MetadataJSON;
+		FString EventTimestamp;    // ISO-8601
+	};
 
-    // --- 4. Wishlist Intelligence (GWI) ---
+	// -------------------------------------------------------------------------
+	// Delegate types — all HTTP calls are async; bind these to receive results
+	// -------------------------------------------------------------------------
 
-    std::string ToggleWishlist(const std::string& userJwt, const std::string& titleId, const std::string& fingerprintId = "");
+	DECLARE_DELEGATE_TwoParams(FOnGlitchResponse,
+		bool  /*bSuccess*/,
+		const FString& /*ResponseBody*/);
 
-    std::string UpdateWishlistScore(const std::string& userJwt, const std::string& titleId, int score);
+	// -------------------------------------------------------------------------
+	// Core API Functions
+	// -------------------------------------------------------------------------
 
-    // Internal helper functions
-    namespace Internal 
-    {
-        size_t WriteCallback(char* ptr, size_t size, size_t nmemb, void* userdata);
-        std::string EscapeJSON(const std::string& input);
-        std::string GetSystemInfo(const std::string& key);
-    }
-}
+	/** Verify license / DRM on startup */
+	void ValidateInstall(
+		const FString& TitleToken,
+		const FString& TitleId,
+		const FString& InstallId,
+		FOnGlitchResponse OnComplete);
+
+	/** Send a DRM heartbeat (call on a timer, NOT every tick) */
+	void SendHeartbeat(
+		const FString& TitleToken,
+		const FString& TitleId,
+		const FString& InstallId,
+		const FString& AnalyticsSessionId,
+		FOnGlitchResponse OnComplete);
+
+	/** Create a basic install record */
+	void CreateInstallRecord(
+		const FString& AuthToken,
+		const FString& TitleId,
+		const FString& UserInstallId,
+		const FString& Platform,
+		FOnGlitchResponse OnComplete);
+
+	/** Create an install record with fingerprint data */
+	void CreateInstallRecordWithFingerprint(
+		const FString& AuthToken,
+		const FString& TitleId,
+		const FString& UserInstallId,
+		const FString& Platform,
+		const FFingerprintComponents& Fingerprint,
+		const FString& GameVersion,
+		const FString& ReferralSource,
+		FOnGlitchResponse OnComplete);
+
+	/** Record a purchase / revenue event */
+	void RecordPurchase(
+		const FString& AuthToken,
+		const FString& TitleId,
+		const FPurchaseData& PurchaseData,
+		FOnGlitchResponse OnComplete);
+
+	// -------------------------------------------------------------------------
+	// Cloud Save
+	// -------------------------------------------------------------------------
+
+	void ListSaves(
+		const FString& TitleToken,
+		const FString& TitleId,
+		const FString& InstallId,
+		FOnGlitchResponse OnComplete);
+
+	void StoreSave(
+		const FString& TitleToken,
+		const FString& TitleId,
+		const FString& InstallId,
+		const FGameSaveData& SaveData,
+		FOnGlitchResponse OnComplete);
+
+	void ResolveSaveConflict(
+		const FString& TitleToken,
+		const FString& TitleId,
+		const FString& InstallId,
+		const FString& SaveId,
+		const FString& ConflictId,
+		const FString& Choice,   // "keep_server" or "use_client"
+		FOnGlitchResponse OnComplete);
+
+	// -------------------------------------------------------------------------
+	// Behavioral Telemetry
+	// -------------------------------------------------------------------------
+
+	void RecordEvent(
+		const FString& TitleToken,
+		const FString& TitleId,
+		const FGameEventData& Event,
+		FOnGlitchResponse OnComplete);
+
+	void RecordEventsBulk(
+		const FString& TitleToken,
+		const FString& TitleId,
+		const TArray<FGameEventData>& Events,
+		FOnGlitchResponse OnComplete);
+
+	// -------------------------------------------------------------------------
+	// Wishlist Intelligence
+	// -------------------------------------------------------------------------
+
+	void ToggleWishlist(
+		const FString& UserJwt,
+		const FString& TitleId,
+		const FString& FingerprintId,
+		FOnGlitchResponse OnComplete);
+
+	void UpdateWishlistScore(
+		const FString& UserJwt,
+		const FString& TitleId,
+		int32 Score,
+		FOnGlitchResponse OnComplete);
+
+	// -------------------------------------------------------------------------
+	// Utility
+	// -------------------------------------------------------------------------
+
+	/** Auto-collect system fingerprint using platform APIs */
+	FFingerprintComponents CollectSystemFingerprint();
+
+	/** Serialize fingerprint struct to a JSON object string */
+	FString FingerprintToJSON(const FFingerprintComponents& Fingerprint);
+
+	/** Serialize purchase struct to a JSON object string */
+	FString PurchaseToJSON(const FPurchaseData& Purchase);
+
+	// -------------------------------------------------------------------------
+	// Internal helpers (used by .cpp only, exposed here for unit-testability)
+	// -------------------------------------------------------------------------
+	namespace Internal
+	{
+		FString EscapeJSON(const FString& Input);
+		void PostJSON(const FString& Url, const FString& Token, const FString& Body, FOnGlitchResponse OnComplete);
+		void GetRequest(const FString& Url, const FString& Token, FOnGlitchResponse OnComplete);
+	}
+
+} // namespace GlitchSDK
