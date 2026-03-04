@@ -28,7 +28,6 @@ void UGlitchAegisSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 
 	// -----------------------------------------------------------------------
 	// Step 1: Register the install / session-start with full attribution data.
-	// Sends device fingerprint for cross-device matching (Doc2 Fingerprinting).
 	// -----------------------------------------------------------------------
 	{
 		GlitchSDK::FInstallData D;
@@ -56,11 +55,7 @@ void UGlitchAegisSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 	}
 
 	// -----------------------------------------------------------------------
-	// Step 2: DRM validation — Doc1 Step 4.
-	// "On the very first frame of your game, call the validation server.
-	//  This ensures the player has a legitimate, active license before they
-	//  ever see your Main Menu."
-	// The result fires OnDrmValidated so Blueprint/GameMode can gate gameplay.
+	// Step 2: DRM validation.
 	// -----------------------------------------------------------------------
 	RunDrmValidation();
 
@@ -70,25 +65,41 @@ void UGlitchAegisSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 	StartHeartbeatLoop();
 }
 
+void UGlitchAegisSubsystem::Deinitialize()
+{
+	// Clear the timer before the world and timer manager are torn down.
+	// Without this, the timer manager may fire into a garbage-collected object.
+	UWorld* World = GetWorld();
+	if (World)
+	{
+		World->GetTimerManager().ClearTimer(HeartbeatTimerHandle);
+	}
+
+	Super::Deinitialize();
+}
+
 void UGlitchAegisSubsystem::RunDrmValidation()
 {
 	const UGlitchAegisSettings* Settings = GetDefault<UGlitchAegisSettings>();
 
-	// Capture delegate so we can fire it on the game thread from the lambda
-	FOnAegisDrmResult DrmDelegate = OnDrmValidated;
+	// Capture a weak pointer so the lambda doesn't access a destroyed subsystem
+	// if the HTTP response arrives after the game instance has shut down.
+	TWeakObjectPtr<UGlitchAegisSubsystem> WeakThis(this);
 
 	GlitchSDK::ValidateInstall(
 		Settings->TitleToken,
 		Settings->TitleId,
 		CachedInstallId,
 		GlitchSDK::FOnGlitchResponse::CreateLambda(
-			[DrmDelegate](bool bSuccess, const FString& Body)
+			[WeakThis](bool bSuccess, const FString& Body)
 			{
-				// Parse user_name from response if present
+				UGlitchAegisSubsystem* Self = WeakThis.Get();
+				if (!Self)
+					return; // Subsystem was destroyed before response arrived
+
 				FString UserName;
 				if (bSuccess)
 				{
-					// Simple substring parse — avoid pulling in a JSON library dependency
 					const FString Key = TEXT("\"user_name\":\"");
 					int32 Start = Body.Find(Key);
 					if (Start != INDEX_NONE)
@@ -102,10 +113,10 @@ void UGlitchAegisSubsystem::RunDrmValidation()
 				}
 				else
 				{
-					UE_LOG(LogTemp, Warning, TEXT("GlitchAegis: License validation failed (403 / no session): %s"), *Body);
+					UE_LOG(LogTemp, Warning, TEXT("GlitchAegis: License validation failed: %s"), *Body);
 				}
 
-				DrmDelegate.Broadcast(bSuccess, UserName);
+				Self->OnDrmValidated.Broadcast(bSuccess, UserName);
 			}
 		)
 	);
@@ -124,7 +135,6 @@ void UGlitchAegisSubsystem::StartHeartbeatLoop()
 	const UGlitchAegisSettings* Settings = GetDefault<UGlitchAegisSettings>();
 	const float Interval = FMath::Clamp(Settings->HeartbeatIntervalSeconds, 10.0f, 120.0f);
 
-	// First tick fires after one full interval — the init call above covers t=0.
 	World->GetTimerManager().SetTimer(
 		HeartbeatTimerHandle,
 		this,
@@ -144,14 +154,11 @@ void UGlitchAegisSubsystem::OnHeartbeatTimerTick()
 	if (Settings->TitleToken.IsEmpty() || Settings->TitleId.IsEmpty() || CachedInstallId.IsEmpty())
 		return;
 
-	// Heartbeat reuses the /installs endpoint.
-	// The backend detects the recurring user_install_id and logs a GameRetention event
-	// rather than a new install, then credits the payout timer.
 	GlitchSDK::SendHeartbeat(
 		Settings->TitleToken,
 		Settings->TitleId,
 		CachedInstallId,
-		/*AnalyticsSessionId=*/TEXT(""),   // idle-detection is handled by the Glitch web wrapper
+		TEXT(""),
 		GlitchSDK::FOnGlitchResponse::CreateLambda([](bool bSuccess, const FString& Body)
 		{
 			if (!bSuccess)

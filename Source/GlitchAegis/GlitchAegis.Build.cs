@@ -6,23 +6,26 @@ public class GlitchAegis : ModuleRules
 	{
 		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
 
+		// Disable unity builds for this plugin to make include errors
+		// easier to diagnose during development.
+		bUseUnity = false;
+
 		PublicDependencyModuleNames.AddRange(
 			new string[]
 			{
 				"Core",
 				"CoreUObject",
 				"Engine",
-				"InputCore",
-				"DeveloperSettings"
+				"DeveloperSettings",
+				"HTTP",
 			}
 		);
 
 		PrivateDependencyModuleNames.AddRange(
 			new string[]
 			{
-				"HTTP",
 				"Json",
-				"JsonUtilities"
+				"JsonUtilities",
 			}
 		);
 	}

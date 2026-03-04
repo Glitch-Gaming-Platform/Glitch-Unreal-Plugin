@@ -29,6 +29,7 @@ class GLITCHAEGIS_API UGlitchAegisSubsystem : public UGameInstanceSubsystem
 
 public:
 	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
+	virtual void Deinitialize() override;
 
 	// -----------------------------------------------------------------------
 	// Events
