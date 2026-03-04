@@ -47,7 +47,9 @@ void UGlitchAegisLibrary::ValidateLicenseAsync(FOnLicenseValidated OnComplete)
 						Start += Key.Len();
 						int32 End = Body.Find(TEXT("\""), ESearchCase::IgnoreCase, ESearchDir::FromStart, Start);
 						if (End != INDEX_NONE)
+						{
 							UserName = Body.Mid(Start, End - Start);
+						}
 					}
 				}
 				OnComplete.ExecuteIfBound(bSuccess, UserName);
@@ -76,9 +78,13 @@ bool UGlitchAegisLibrary::ValidateLicense(FString& OutUserName)
 		FOnGlitchResponse::CreateLambda([](bool bSuccess, const FString& Body)
 		{
 			if (bSuccess)
+			{
 				UE_LOG(LogTemp, Log, TEXT("GlitchAegis: License validated."));
+			}
 			else
+			{
 				UE_LOG(LogTemp, Warning, TEXT("GlitchAegis: License validation failed: %s"), *Body);
+			}
 		})
 	);
 
@@ -109,7 +115,9 @@ void UGlitchAegisLibrary::RecordGameEvent(FString Step, FString Action, FString 
 		FOnGlitchResponse::CreateLambda([](bool bSuccess, const FString& Body)
 		{
 			if (!bSuccess)
+			{
 				UE_LOG(LogTemp, Warning, TEXT("GlitchAegis: RecordGameEvent failed: %s"), *Body);
+			}
 		})
 	);
 }
@@ -144,7 +152,9 @@ void UGlitchAegisLibrary::RecordGameEventsBulk(const TArray<FGlitchEventData>& E
 		FOnGlitchResponse::CreateLambda([](bool bSuccess, const FString& Body)
 		{
 			if (!bSuccess)
+			{
 				UE_LOG(LogTemp, Warning, TEXT("GlitchAegis: RecordGameEventsBulk failed: %s"), *Body);
+			}
 		})
 	);
 }
@@ -159,7 +169,9 @@ void UGlitchAegisLibrary::SaveToCloud(FGlitchSaveData SaveData)
 	const FString InstallId = GetCachedInstallId();
 
 	if (InstallId.IsEmpty() || Settings->TitleToken.IsEmpty() || Settings->TitleId.IsEmpty())
+	{
 		return;
+	}
 
 	// Checksum must be a real SHA-256 hex string supplied by the caller.
 	// If it is empty or still the old "auto-generated" placeholder, log a warning
@@ -187,9 +199,13 @@ void UGlitchAegisLibrary::SaveToCloud(FGlitchSaveData SaveData)
 		FOnGlitchResponse::CreateLambda([](bool bSuccess, const FString& Body)
 		{
 			if (bSuccess)
+			{
 				UE_LOG(LogTemp, Log, TEXT("GlitchAegis: SaveToCloud succeeded."));
+			}
 			else
+			{
 				UE_LOG(LogTemp, Warning, TEXT("GlitchAegis: SaveToCloud failed: %s"), *Body);
+			}
 		})
 	);
 }
@@ -221,9 +237,13 @@ void UGlitchAegisLibrary::RecordPurchase(FGlitchPurchaseData PurchaseData)
 		FOnGlitchResponse::CreateLambda([](bool bSuccess, const FString& Body)
 		{
 			if (bSuccess)
+			{
 				UE_LOG(LogTemp, Log, TEXT("GlitchAegis: RecordPurchase succeeded."));
+			}
 			else
+			{
 				UE_LOG(LogTemp, Warning, TEXT("GlitchAegis: RecordPurchase failed: %s"), *Body);
+			}
 		})
 	);
 }

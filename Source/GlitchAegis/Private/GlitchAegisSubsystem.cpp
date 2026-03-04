@@ -24,7 +24,9 @@ void UGlitchAegisSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 	}
 
 	if (!Settings->bEnableAutomaticHeartbeat)
+	{
 		return;
+	}
 
 	// -----------------------------------------------------------------------
 	// Step 1: Register the install / session-start with full attribution data.
@@ -46,9 +48,13 @@ void UGlitchAegisSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 			FOnGlitchResponse::CreateLambda([](bool bSuccess, const FString& Body)
 			{
 				if (bSuccess)
+				{
 					UE_LOG(LogTemp, Log, TEXT("GlitchAegis: Install/session registered."));
+				}
 				else
+				{
 					UE_LOG(LogTemp, Warning, TEXT("GlitchAegis: Install registration failed: %s"), *Body);
+				}
 			}),
 			&FP
 		);
@@ -95,7 +101,9 @@ void UGlitchAegisSubsystem::RunDrmValidation()
 			{
 				UGlitchAegisSubsystem* Self = WeakThis.Get();
 				if (!Self)
+				{
 					return; // Subsystem was destroyed before response arrived
+				}
 
 				FString UserName;
 				if (bSuccess)
@@ -107,7 +115,9 @@ void UGlitchAegisSubsystem::RunDrmValidation()
 						Start += Key.Len();
 						int32 End = Body.Find(TEXT("\""), ESearchCase::IgnoreCase, ESearchDir::FromStart, Start);
 						if (End != INDEX_NONE)
+						{
 							UserName = Body.Mid(Start, End - Start);
+						}
 					}
 					UE_LOG(LogTemp, Log, TEXT("GlitchAegis: License valid. User: %s"), *UserName);
 				}
@@ -152,7 +162,9 @@ void UGlitchAegisSubsystem::OnHeartbeatTimerTick()
 	const UGlitchAegisSettings* Settings = GetDefault<UGlitchAegisSettings>();
 
 	if (Settings->TitleToken.IsEmpty() || Settings->TitleId.IsEmpty() || CachedInstallId.IsEmpty())
+	{
 		return;
+	}
 
 	GlitchSDK::SendHeartbeat(
 		Settings->TitleToken,
@@ -162,7 +174,9 @@ void UGlitchAegisSubsystem::OnHeartbeatTimerTick()
 		FOnGlitchResponse::CreateLambda([](bool bSuccess, const FString& Body)
 		{
 			if (!bSuccess)
+			{
 				UE_LOG(LogTemp, Warning, TEXT("GlitchAegis: Heartbeat failed: %s"), *Body);
+			}
 		})
 	);
 }

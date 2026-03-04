@@ -361,9 +361,14 @@ namespace GlitchSDK
 			if (hNtdll)
 			{
 				FARPROC raw = GetProcAddress(hNtdll, "RtlGetVersion");
-PRAGMA_DISABLE_UNSAFE_TYPECAST_WARNINGS
+#if defined(_MSC_VER)
+				__pragma(warning(push))
+				__pragma(warning(disable: 4191))
+#endif
 				RtlGetVersionPtr pfn = reinterpret_cast<RtlGetVersionPtr>(raw);
-PRAGMA_ENABLE_UNSAFE_TYPECAST_WARNINGS
+#if defined(_MSC_VER)
+				__pragma(warning(pop))
+#endif
 				if (pfn)
 				{
 					RTL_OSVERSIONINFOW osInfo = {};
@@ -673,7 +678,9 @@ PRAGMA_ENABLE_UNSAFE_TYPECAST_WARNINGS
 		auto AppendStr = [&](const TCHAR* Key, const FString& Val)
 		{
 			if (!Val.IsEmpty())
+			{
 				Body += FString::Printf(TEXT(",\"%s\":\"%s\""), Key, *Internal::EscapeJSON(Val));
+			}
 		};
 
 		AppendStr(TEXT("game_version"),    D.GameVersion);
@@ -692,7 +699,9 @@ PRAGMA_ENABLE_UNSAFE_TYPECAST_WARNINGS
 		AppendStr(TEXT("advertising_id"),  D.AdvertisingId);
 
 		if (FP)
+		{
 			Body += FString::Printf(TEXT(",\"fingerprint_components\":%s"), *FingerprintToJSON(*FP));
+		}
 
 		Body += TEXT("}");
 		return Body;
