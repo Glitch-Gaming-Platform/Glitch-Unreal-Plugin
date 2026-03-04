@@ -101,6 +101,33 @@ namespace GlitchSDK
 
 			Request->ProcessRequest();
 		}
+		/** Async PATCH helper — used for VoidInstall */
+		void PatchJSON(const FString& Url, const FString& Token, const FString& Body, FOnGlitchResponse OnComplete)
+		{
+			TSharedRef<IHttpRequest, ESPMode::ThreadSafe> Request = FHttpModule::Get().CreateRequest();
+			Request->SetURL(Url);
+			Request->SetVerb(TEXT("PATCH"));
+			Request->SetHeader(TEXT("Content-Type"), TEXT("application/json"));
+			Request->SetHeader(TEXT("Authorization"), FString::Printf(TEXT("Bearer %s"), *Token));
+			Request->SetContentAsString(Body);
+
+			Request->OnProcessRequestComplete().BindLambda(
+				[OnComplete](FHttpRequestPtr /*Req*/, FHttpResponsePtr Response, bool bConnected)
+				{
+					if (bConnected && Response.IsValid())
+					{
+						const bool bOk = EHttpResponseCodes::IsOk(Response->GetResponseCode());
+						OnComplete.ExecuteIfBound(bOk, Response->GetContentAsString());
+					}
+					else
+					{
+						OnComplete.ExecuteIfBound(false, TEXT("HTTP request failed: no response"));
+					}
+				});
+
+			Request->ProcessRequest();
+		}
+
 	} // namespace Internal
 
 	// =========================================================================
@@ -627,58 +654,72 @@ namespace GlitchSDK
 		return Out;
 	}
 
-	void CreateInstall(
-		const FString& AuthToken,
-		const FString& TitleId,
-		const FInstallData& D,
-		FOnGlitchResponse OnComplete,
-		const FFingerprintComponents* Fingerprint)
-	{
-		const FString Url = FString::Printf(TEXT("%s/titles/%s/installs"), *BaseUrl, *TitleId);
+	// =========================================================================
+	// Install Registration — unified API
+	// =========================================================================
 
+	FString InstallDataToJSON(const FInstallData& D, const FFingerprintComponents* FP)
+	{
 		FString Body = FString::Printf(
-			TEXT("{\"user_install_id\":\"%s\""),
-			*Internal::EscapeJSON(D.UserInstallId)
+			TEXT("{\"user_install_id\":\"%s\",\"platform\":\"%s\",\"device_type\":\"%s\""),
+			*Internal::EscapeJSON(D.UserInstallId),
+			*Internal::EscapeJSON(D.Platform),
+			*Internal::EscapeJSON(D.DeviceType)
 		);
 
-		if (!D.Platform.IsEmpty())
-			Body += FString::Printf(TEXT(",\"platform\":\"%s\""), *Internal::EscapeJSON(D.Platform));
-		if (!D.DeviceType.IsEmpty())
-			Body += FString::Printf(TEXT(",\"device_type\":\"%s\""), *Internal::EscapeJSON(D.DeviceType));
-		if (!D.GameVersion.IsEmpty())
-			Body += FString::Printf(TEXT(",\"game_version\":\"%s\""), *Internal::EscapeJSON(D.GameVersion));
-
-		if (!D.ReferralSource.IsEmpty())
-			Body += FString::Printf(TEXT(",\"referral_source\":\"%s\""), *Internal::EscapeJSON(D.ReferralSource));
-
-		// Optional UTM fields if your backend accepts them (safe to omit if empty)
-		if (!D.UtmSource.IsEmpty())   Body += FString::Printf(TEXT(",\"utm_source\":\"%s\""), *Internal::EscapeJSON(D.UtmSource));
-		if (!D.UtmMedium.IsEmpty())   Body += FString::Printf(TEXT(",\"utm_medium\":\"%s\""), *Internal::EscapeJSON(D.UtmMedium));
-		if (!D.UtmCampaign.IsEmpty()) Body += FString::Printf(TEXT(",\"utm_campaign\":\"%s\""), *Internal::EscapeJSON(D.UtmCampaign));
-		if (!D.UtmContent.IsEmpty())  Body += FString::Printf(TEXT(",\"utm_content\":\"%s\""), *Internal::EscapeJSON(D.UtmContent));
-		if (!D.UtmTerm.IsEmpty())     Body += FString::Printf(TEXT(",\"utm_term\":\"%s\""), *Internal::EscapeJSON(D.UtmTerm));
-
-		if (Fingerprint)
+		auto AppendStr = [&](const TCHAR* Key, const FString& Val)
 		{
-			Body += FString::Printf(TEXT(",\"fingerprint_components\":%s"), *FingerprintToJSON(*Fingerprint));
-		}
+			if (!Val.IsEmpty())
+				Body += FString::Printf(TEXT(",\"%s\":\"%s\""), Key, *Internal::EscapeJSON(Val));
+		};
+
+		AppendStr(TEXT("game_version"),    D.GameVersion);
+		AppendStr(TEXT("referral_source"), D.ReferralSource);
+		AppendStr(TEXT("utm_source"),      D.UtmSource);
+		AppendStr(TEXT("utm_medium"),      D.UtmMedium);
+		AppendStr(TEXT("utm_campaign"),    D.UtmCampaign);
+		AppendStr(TEXT("utm_term"),        D.UtmTerm);
+		AppendStr(TEXT("utm_content"),     D.UtmContent);
+		AppendStr(TEXT("device_model"),    D.DeviceModel);
+		AppendStr(TEXT("os_name"),         D.OSName);
+		AppendStr(TEXT("os_version"),      D.OSVersion);
+		AppendStr(TEXT("language"),        D.Language);
+		AppendStr(TEXT("region"),          D.Region);
+		AppendStr(TEXT("timezone"),        D.Timezone);
+		AppendStr(TEXT("advertising_id"),  D.AdvertisingId);
+
+		if (FP)
+			Body += FString::Printf(TEXT(",\"fingerprint_components\":%s"), *FingerprintToJSON(*FP));
 
 		Body += TEXT("}");
+		return Body;
+	}
 
-		Internal::PostJSON(Url, AuthToken, Body, OnComplete);
+	void CreateInstall(
+		const FString&                TitleToken,
+		const FString&                TitleId,
+		const FInstallData&           Data,
+		FOnGlitchResponse             OnComplete,
+		const FFingerprintComponents* Fingerprint)
+	{
+		const FString Url  = FString::Printf(TEXT("%s/titles/%s/installs"), *BaseUrl, *TitleId);
+		const FString Body = InstallDataToJSON(Data, Fingerprint);
+		Internal::PostJSON(Url, TitleToken, Body, OnComplete);
 	}
 
 	void VoidInstall(
-		const FString& AuthToken,
+		const FString& TitleToken,
 		const FString& TitleId,
 		const FString& InstallUuid,
-		bool bVoid,
+		bool           bVoid,
 		FOnGlitchResponse OnComplete)
 	{
-		// If your backend uses a different route/body, update this to match.
-		const FString Url = FString::Printf(TEXT("%s/titles/%s/installs/%s/void"), *BaseUrl, *TitleId, *InstallUuid);
-		const FString Body = FString::Printf(TEXT("{\"void\":%s}"), bVoid ? TEXT("true") : TEXT("false"));
-		Internal::PostJSON(Url, AuthToken, Body, OnComplete);
+		// PATCH /titles/{title_id}/installs/{install_uuid}
+		const FString Url  = FString::Printf(TEXT("%s/titles/%s/installs/%s"),
+		                                     *BaseUrl, *TitleId, *InstallUuid);
+		const FString Body = FString::Printf(TEXT("{\"void\":%s}"),
+		                                     bVoid ? TEXT("true") : TEXT("false"));
+		Internal::PatchJSON(Url, TitleToken, Body, OnComplete);
 	}
 
 } // namespace GlitchSDK
