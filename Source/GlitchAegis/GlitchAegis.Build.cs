@@ -17,10 +17,16 @@ public class GlitchAegis : ModuleRules
 		CppStandard = CppStandardVersion.Cpp17;
 
 		// Suppress MSVC strict conformance warnings that come from UE5.3+ defaults.
-		// Our code is conformant; this prevents noisy warnings from engine headers.
+		// bEnableUndefinedIdentifierWarnings was deprecated in UE5.5 and replaced
+		// with UndefinedIdentifierWarningLevel. We use a version check so the plugin
+		// compiles cleanly on UE4, UE5.0-5.4, and UE5.5+ without any warnings or errors.
 		if (Target.Platform == UnrealTargetPlatform.Win64)
 		{
+#if UE_5_5_OR_LATER
+			UndefinedIdentifierWarningLevel = WarningLevel.Off;
+#else
 			bEnableUndefinedIdentifierWarnings = false;
+#endif
 		}
 
 		// Modules available in all UE5 versions
