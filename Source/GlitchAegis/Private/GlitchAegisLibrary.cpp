@@ -1,16 +1,37 @@
 #include "GlitchAegisLibrary.h"
 #include "GlitchAegisSettings.h"
+#include "GlitchAegisSubsystem.h"
 #include "GlitchSDK.h"
+#include "Engine/GameInstance.h"
 
 // ---------------------------------------------------------------------------
-// Internal helper: retrieve install_id from command line
+// Internal helper: retrieve the active install_id for the current session.
+//
+// Mirrors the resolution logic in GlitchAegisSubsystem::Initialize() so that
+// standalone Blueprint function library calls (which have no subsystem
+// reference) still find the correct ID.
+//
+// Priority:
+//   1. -install_id= command-line argument  (Glitch launcher, all builds)
+//   2. Settings->TestInstallId             (non-Shipping only)
 // ---------------------------------------------------------------------------
-
-static FString GetCachedInstallId()
+static FString GetEffectiveInstallId()
 {
-	FString Id;
-	FParse::Value(FCommandLine::Get(), TEXT("install_id="), Id);
-	return Id;
+	FString FromCmdLine;
+	if (FParse::Value(FCommandLine::Get(), TEXT("install_id="), FromCmdLine) && !FromCmdLine.IsEmpty())
+	{
+		return FromCmdLine;
+	}
+
+#if !UE_BUILD_SHIPPING
+	const UGlitchAegisSettings* Settings = GetDefault<UGlitchAegisSettings>();
+	if (!Settings->TestInstallId.IsEmpty())
+	{
+		return Settings->TestInstallId;
+	}
+#endif
+
+	return FString();
 }
 
 // ============================================================================
@@ -20,11 +41,11 @@ static FString GetCachedInstallId()
 void UGlitchAegisLibrary::ValidateLicenseAsync(FOnLicenseValidated OnComplete)
 {
 	const UGlitchAegisSettings* Settings = GetDefault<UGlitchAegisSettings>();
-	const FString InstallId = GetCachedInstallId();
+	const FString InstallId = GetEffectiveInstallId();
 
 	if (Settings->TitleToken.IsEmpty() || Settings->TitleId.IsEmpty() || InstallId.IsEmpty())
 	{
-		// No active Glitch session — fire the delegate immediately as denied
+		// No active Glitch session — fire the delegate immediately as denied.
 		OnComplete.ExecuteIfBound(false, TEXT(""));
 		return;
 	}
@@ -39,7 +60,6 @@ void UGlitchAegisLibrary::ValidateLicenseAsync(FOnLicenseValidated OnComplete)
 				FString UserName;
 				if (bSuccess)
 				{
-					// Parse "user_name" from the response JSON without an extra library
 					const FString Key = TEXT("\"user_name\":\"");
 					int32 Start = Body.Find(Key);
 					if (Start != INDEX_NONE)
@@ -61,7 +81,7 @@ void UGlitchAegisLibrary::ValidateLicenseAsync(FOnLicenseValidated OnComplete)
 bool UGlitchAegisLibrary::ValidateLicense(FString& OutUserName)
 {
 	const UGlitchAegisSettings* Settings = GetDefault<UGlitchAegisSettings>();
-	const FString InstallId = GetCachedInstallId();
+	const FString InstallId = GetEffectiveInstallId();
 
 	if (Settings->TitleToken.IsEmpty() || Settings->TitleId.IsEmpty() || InstallId.IsEmpty())
 	{
@@ -102,7 +122,7 @@ void UGlitchAegisLibrary::RecordGameEvent(FString Step, FString Action, FString 
 	if (Settings->TitleToken.IsEmpty() || Settings->TitleId.IsEmpty()) return;
 
 	GlitchSDK::FGameEventData Event;
-	Event.GameInstallID  = GetCachedInstallId();
+	Event.GameInstallID  = GetEffectiveInstallId();
 	Event.StepKey        = Step;
 	Event.ActionKey      = Action;
 	Event.MetadataJSON   = MetadataJSON;
@@ -166,16 +186,13 @@ void UGlitchAegisLibrary::RecordGameEventsBulk(const TArray<FGlitchEventData>& E
 void UGlitchAegisLibrary::SaveToCloud(FGlitchSaveData SaveData)
 {
 	const UGlitchAegisSettings* Settings = GetDefault<UGlitchAegisSettings>();
-	const FString InstallId = GetCachedInstallId();
+	const FString InstallId = GetEffectiveInstallId();
 
 	if (InstallId.IsEmpty() || Settings->TitleToken.IsEmpty() || Settings->TitleId.IsEmpty())
 	{
 		return;
 	}
 
-	// Checksum must be a real SHA-256 hex string supplied by the caller.
-	// If it is empty or still the old "auto-generated" placeholder, log a warning
-	// and skip — the server will reject a malformed or missing checksum.
 	if (SaveData.Checksum.IsEmpty() || SaveData.Checksum == TEXT("auto-generated"))
 	{
 		UE_LOG(LogTemp, Error,
@@ -282,7 +299,7 @@ void UGlitchAegisLibrary::VoidInstall(FString InstallUuid, bool bVoid, FOnGlitch
 void UGlitchAegisLibrary::SendFingerprintedInstall(FOnGlitchResult OnComplete)
 {
 	const UGlitchAegisSettings* Settings = GetDefault<UGlitchAegisSettings>();
-	const FString InstallId = GetCachedInstallId();
+	const FString InstallId = GetEffectiveInstallId();
 
 	if (InstallId.IsEmpty() || Settings->TitleToken.IsEmpty() || Settings->TitleId.IsEmpty())
 	{
