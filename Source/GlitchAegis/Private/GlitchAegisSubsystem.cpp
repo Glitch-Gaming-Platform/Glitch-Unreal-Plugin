@@ -2,8 +2,6 @@
 #include "GlitchAegisSettings.h"
 #include "GlitchSDK.h"
 #include "Engine/Engine.h"
-#include "Blueprint/UserWidget.h"
-#include "Blueprint/WidgetBlueprintLibrary.h"
 
 // ---------------------------------------------------------------------------
 // Resolve the effective install_id for this session.
