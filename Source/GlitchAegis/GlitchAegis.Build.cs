@@ -12,9 +12,13 @@ public class GlitchAegis : ModuleRules
 		// This prevents hidden include-order bugs and gives clean error messages.
 		bUseUnity = false;
 
-		// Use C++17 explicitly for UE5.0-5.2 compatibility.
-		// UE5.3+ defaults to C++20; this setting is forward-compatible.
+		// UE4 / UE5.0-5.2 default to C++17.  UE5.3+ default to C++20.
+		// UE5.7 removed CppStandardVersion.Cpp17 entirely, so we must NOT
+		// reference that symbol on 5.3+.  On older engines the explicit
+		// setting is harmless (it matches their default).
+#if !UE_5_3_OR_LATER
 		CppStandard = CppStandardVersion.Cpp17;
+#endif
 
 		// Suppress MSVC undefined-identifier warnings fired by engine headers under
 		// strict conformance mode. Epic has changed this API three times:
