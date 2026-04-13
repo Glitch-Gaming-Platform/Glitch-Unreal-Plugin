@@ -1,471 +1,433 @@
-# Glitch Gaming — Unreal Engine Plugin
+# Glitch Unreal Plugin v2.0.0
 
-> **Connect your Unreal game to the [Glitch Gaming Platform](https://glitch.fun).**
-> Earn developer payouts, protect your game with DRM, track player analytics, and attribute installs to your marketing campaigns — all with zero server infrastructure on your end.
+The official [Glitch](https://glitch.fun) plugin for **Unreal Engine 4.26 – 5.7+**. Zero-code heartbeat payouts and DRM via Project Settings, with simple Blueprint nodes and C++ calls for achievements, leaderboards, cloud saves, analytics, purchases, fingerprinting, and optional Steam-to-Glitch migration.
+
+**Repository:** [github.com/Glitch-Gaming-Platform/Glitch-Unreal-Plugin](https://github.com/Glitch-Gaming-Platform/Glitch-Unreal-Plugin)
 
 ---
 
 ## Table of Contents
 
-1. [What Does This Plugin Do?](#what-does-this-plugin-do)
-2. [Requirements](#requirements)
-3. [Installation](#installation)
-4. [Quick Start (Zero-Code Setup)](#quick-start-zero-code-setup)
-5. [Feature Guide](#feature-guide)
-   - [Payout Heartbeat](#1-payout-heartbeat)
-   - [DRM License Validation](#2-drm-license-validation)
-   - [Install & Retention Tracking](#3-install--retention-tracking)
-   - [Fingerprinting & Cross-Device Attribution](#4-fingerprinting--cross-device-attribution)
-   - [Behavioral Events & Funnels](#5-behavioral-events--funnels)
-   - [Purchase & Revenue Tracking](#6-purchase--revenue-tracking)
-   - [Cloud Saves](#7-cloud-saves)
-   - [Voiding Installs](#8-voiding-installs)
-6. [Project Settings Reference](#project-settings-reference)
-7. [Blueprint Reference](#blueprint-reference)
-8. [C++ Reference](#c-reference)
-9. [File Structure](#file-structure)
-10. [FAQ](#faq)
-
----
-
-## What Does This Plugin Do?
-
-When a player launches your game through the Glitch platform, a lot happens automatically:
-
-| Feature | What it means for you |
-|---|---|
-| **Payout Heartbeat** | You earn **$0.10/hour** per active player. The plugin sends a signal every 30 seconds to prove a human is playing. |
-| **DRM Validation** | Confirms the player has a valid Glitch license before your game loads. Stops unauthorized access. |
-| **Analytics** | Tracks installs, session length, and player retention across your whole player base. |
-| **Attribution** | Links every install back to the ad or influencer that drove it, even across devices. |
-| **Behavioral Events** | Records what players do inside your game so you can see where they quit. |
-| **Revenue Tracking** | Logs in-app purchases for LTV and ROI reporting. |
-| **Cloud Saves** | Stores player save data server-side so it persists across devices. |
-
----
-
-## Requirements
-
-- **Unreal Engine 5.0 or later** (tested on 5.1–5.4)
-- A free [Glitch Gaming Platform](https://glitch.fun) developer account
-- Your game's **Title ID** and a **Title Token** (generated in your game's dashboard)
+1. [Installation](#installation)
+2. [Quick Start (Zero Code)](#quick-start-zero-code)
+3. [Achievements](#achievements)
+4. [Leaderboards](#leaderboards)
+5. [Cloud Saves](#cloud-saves)
+6. [Analytics Events](#analytics-events)
+7. [Purchases / Revenue](#purchases--revenue)
+8. [Fingerprinting & Attribution](#fingerprinting--attribution)
+9. [Steam-to-Glitch Migration](#steam-to-glitch-migration)
+10. [C++ API Reference](#c-api-reference)
+11. [UE 4.26 Compatibility](#ue-426-compatibility)
+12. [Troubleshooting](#troubleshooting)
 
 ---
 
 ## Installation
 
-### Step 1 — Create the plugin folder
+1. Copy the `GlitchAegis` folder into your project's `Plugins/` directory.
+2. Open your project in Unreal Engine.
+3. Go to **Edit → Plugins**, search for "Glitch Gaming", and confirm it's enabled.
+4. Restart the editor if prompted.
 
-Inside your Unreal project folder, create this path if it doesn't exist:
+The plugin compiles on **UE 4.26, 4.27, 5.0–5.7+** across Windows, Mac, and Linux. The Build.cs handles all engine version differences automatically (C++ standard, warning suppression APIs, etc.).
 
-```
-YourProject/
-└── Plugins/
-    └── GlitchAegis/
-```
+---
 
-### Step 2 — Drop in the files
+## Quick Start (Zero Code)
 
-Your final folder structure must look exactly like this:
+The heartbeat (payouts) and DRM validation work entirely through Project Settings — no Blueprints or C++ required.
 
-```
-Plugins/
-└── GlitchAegis/
-    ├── GlitchAegis.uplugin
-    └── Source/
-        └── GlitchAegis/
-            ├── GlitchAegis.Build.cs
-            ├── Public/
-            │   ├── GlitchSDK.h
-            │   ├── GlitchAegisSettings.h
-            │   ├── GlitchAegisSubsystem.h
-            │   └── GlitchAegisLibrary.h
-            └── Private/
-                ├── GlitchSDK.cpp
-                ├── GlitchAegisSubsystem.cpp
-                └── GlitchAegisLibrary.cpp
-```
+### Step 1: Get Your Credentials
 
-### Step 3 — Regenerate project files
+1. Go to [glitch.fun](https://glitch.fun) → **My Games** → select your game.
+2. Open the **Technical Integration** page.
+3. Copy your **Title ID** and **Title Token**.
+4. Copy your **Developer Test Install ID** (for editor testing).
 
-**Close Unreal Engine**, then right-click your `.uproject` file in Windows Explorer and choose **"Generate Visual Studio project files"**. This is required whenever you add a new plugin.
-
-### Step 4 — Enable the plugin
-
-Open your project in Unreal, go to **Edit → Plugins**, search for **"Glitch Aegis"**, and tick the **Enabled** checkbox. Restart when prompted.
-
-### Step 5 — Configure your credentials
+### Step 2: Configure the Plugin
 
 Go to **Edit → Project Settings → Glitch Aegis** and fill in:
 
-- **Title ID** — your game's ID from the Glitch dashboard
-- **Title Token** — the secret token you generated on the Technical Integration page
+| Setting | What to Enter |
+|---------|--------------|
+| **Title Id** | Your UUID from the dashboard |
+| **Title Token** | Your private API token |
+| **Test Install ID** | Your dev test ID (for PIE testing) |
 
-> ⚠️ **Keep your Title Token secret.** Never commit it to a public GitHub repo. Treat it like a password.
+### Step 3: Toggle Features
 
----
+| Setting | Default | What It Does |
+|---------|---------|-------------|
+| **bEnableAutomaticHeartbeat** | ✅ ON | Pings every 30s → earns $0.10/hr payouts |
+| **HeartbeatIntervalSeconds** | 30 | Seconds between pings (10–120) |
+| **bRequireValidation** | ❌ OFF | Validates license on startup |
+| **bShowErrorScreenOnValidationFailure** | ✅ ON | Blocks game with error screen if DRM fails |
+| **bEnableAchievements** | ✅ ON | Auto-loads achievement data on startup |
+| **bAutoLoadAchievements** | ✅ ON | Fetches achievement cache at boot |
+| **bEnableLeaderboards** | ✅ ON | Enables score submission |
+| **bEnableCloudSaves** | ✅ ON | Enables cloud save/load |
+| **bEnableSteamBridge** | ❌ OFF | Activates Steam-to-Glitch replacement functions |
+| **bEnableFingerprinting** | ✅ ON | Sends hardware fingerprint for attribution |
 
-## Quick Start (Zero-Code Setup)
+### Step 4: Build & Deploy
 
-If you just want payouts working as fast as possible:
+Package your game for **Linux** (Pixel Streaming) or **Windows** and upload to the Glitch [Deploy Page](https://glitch.fun/games/admin).
 
-1. **Fill in Title ID + Title Token** in Project Settings (see Step 5 above).
-2. Make sure **"Enable Automatic Heartbeat"** is checked (it is by default).
-3. Build and deploy your game through the Glitch platform.
-
-That's it. The plugin's `GlitchAegisSubsystem` starts automatically when the game launches. It reads the player's session ID from the command line (injected by the Glitch launcher), registers the install, validates the license, and starts the payout heartbeat — all without any code from you.
-
----
-
-## Feature Guide
-
-### 1. Payout Heartbeat
-
-**What it is:** Every 30 seconds while your game is running, the plugin pings the Glitch server. Each ping proves a real human is playing and credits one minute toward your **$0.10/hour developer payout**.
-
-**How it works automatically:**
-The `GlitchAegisSubsystem` handles this entirely if `bEnableAutomaticHeartbeat = true` in settings. Nothing to code.
-
-**Manual control (optional):**
-If you want to start the heartbeat at a specific moment (e.g., after your own loading screen), disable auto-heartbeat in settings and call it from Blueprint:
-
-```
-[Get GlitchAegisSubsystem] → [Start Heartbeat Loop]
-```
-
-**Configuring the interval:**
-In Project Settings, `Heartbeat Interval Seconds` defaults to `30`. You can increase it to `60` if you prefer — just note that shorter intervals give more accurate session data for analytics.
+**That's it.** The `GlitchAegisSubsystem` initializes automatically on game launch, reads `-install_id=UUID` from the command line (injected by the Glitch launcher), registers the session, and starts the heartbeat loop.
 
 ---
 
-### 2. DRM License Validation
+## Achievements
 
-**What it is:** On startup, the plugin checks with Glitch's server to confirm the player has a valid, active license for your game. If they don't, you can block access.
+### Dashboard Setup
 
-**Automatic check:**
-When `bEnableAutomaticHeartbeat = true`, the subsystem automatically runs the validation and broadcasts the result via the `OnDrmValidated` event. Bind to it in your GameMode:
+Define achievements on the Glitch dashboard with an **API Key** (e.g. `boss_killed`) and an **Unlock Threshold** (e.g. `1`).
 
-**In Blueprint:**
+### Blueprint Usage
 
-1. Get the `GlitchAegisSubsystem` from your Game Instance.
-2. Bind an event to **On Drm Validated**.
-3. In your event: if `bIsValid` is **true** → proceed to main menu. If **false** → show "Access Denied" and quit.
+Right-click in your Event Graph and search for "Glitch":
 
-```
-[Event BeginPlay]
-  → [Get Game Instance Subsystem: GlitchAegisSubsystem]
-  → [Bind Event to On Drm Validated]
-       → [Branch: Is Valid?]
-            True  → [Open Level: MainMenu]
-            False → [Quit Game]
-```
+- **Report Achievement Progress** — sends progress toward an achievement
+  - Api Key: `boss_killed`
+  - Value: `1`
 
-**On-demand check (Blueprint function):**
+- **Is Achievement Unlocked** — returns true/false from local cache (instant, no network call)
 
-Use **Validate License (Async)** from the Blueprint library anywhere in your game:
+- **Refresh Achievements** — force-reload from server
 
-```
-[Validate License Async]
-  → On Complete
-       → [Branch: Is Valid?]
-            True  → continue
-            False → show "Please purchase on Glitch"
-```
-
-> ℹ️ There is also a legacy `Validate License` node (non-async). It is deprecated — it fires the request but silently ignores the 403 "denied" response, so it won't actually stop unauthorized players. Use **Validate License Async** instead.
-
----
-
-### 3. Install & Retention Tracking
-
-**What it is:** Records when a player first installs/runs your game, and tracks how long they keep playing. This powers the Retention dashboard on Glitch.
-
-**How it works:**
-The subsystem sends the install record automatically on first launch. Every heartbeat after that is detected by the backend as a retention ping — no separate setup needed.
-
-**What gets tracked automatically:**
-- Platform (`pc`)
-- Device type (`desktop`)
-- Game version (from your `GameVersion` setting)
-- Referral source (from your `ReferralSource` setting)
-- Hardware fingerprint (CPU, GPU, OS, screen, etc.)
-
-**Recommended settings to fill in:**
-
-| Setting | Example | Why |
-|---|---|---|
-| `GameVersion` | `1.2.3` | Track retention across updates |
-| `ReferralSource` | `advertising` | See which channels drive installs |
-
----
-
-### 4. Fingerprinting & Cross-Device Attribution
-
-**What it is:** When a player clicks your ad on a browser, then installs your game on their PC, we need to connect those two events to prove the ad worked. Fingerprinting does this by matching hardware signals (CPU model, GPU, screen resolution, OS version, etc.) between the web session and the game client.
-
-**How it works automatically:**
-When the subsystem registers the install, it calls `CollectSystemFingerprint()` automatically, which gathers all available hardware signals and includes them in the install record. No setup required.
-
-**Keyboard layout matching:**
-The docs describe keyboard layout as one of the most powerful fingerprinting signals for web-to-game matching. The plugin collects this automatically using platform APIs on Windows and Mac.
-
-**Manual fingerprinted install (Blueprint):**
-If you disabled auto-heartbeat and want to send a fingerprinted install at a specific moment:
-
-```
-[Send Fingerprinted Install]
-  → On Complete
-       → [Branch: Success?]
-            True  → continue
-            False → log error
-```
-
----
-
-### 5. Behavioral Events & Funnels
-
-**What it is:** Track specific actions players take inside your game. Combine them into Funnels to see exactly where players are dropping off — for example, how many players who start the tutorial actually finish it.
-
-**The two labels every event needs:**
-- **Step Key** — the screen or stage the player is on (e.g. `"onboarding"`, `"level_1"`, `"shop"`)
-- **Action Key** — what they did (e.g. `"start"`, `"complete"`, `"player_death"`, `"open"`)
-
-**Sending a single event (Blueprint):**
-
-Use **Record Game Event** from the Blueprint library:
-
-```
-[Record Game Event]
-  Step:   "tutorial"
-  Action: "completed"
-  Metadata: "{\"time_seconds\": 120}"
-```
-
-The `Metadata` field is optional. It accepts a JSON string if you want to attach extra data (scores, difficulty, item names, etc.).
-
-**Sending multiple events at once (Bulk — recommended for mobile):**
-
-Batching events saves battery and bandwidth. Use **Record Game Events (Bulk)**:
-
-```
-[Make Array of FGlitchEventData]
-  → Element 0: StepKey="menu",     ActionKey="open"
-  → Element 1: StepKey="menu",     ActionKey="click_play"
-  → Element 2: StepKey="level_1",  ActionKey="start"
-
-[Record Game Events Bulk] ← pass the array in
-```
-
-Call the bulk version every 1–2 minutes, or when the player transitions between major screens.
-
-**Building a funnel on the dashboard:**
-Once events are flowing, go to the **Behavioral Funnels** tab in your Glitch dashboard. Select your steps in order (e.g. `tutorial_start → tutorial_complete → level_1_start`) and the dashboard calculates the drop-off rate between each step automatically.
-
----
-
-### 6. Purchase & Revenue Tracking
-
-**What it is:** Records when a player buys something — an in-app purchase, DLC, cosmetic, etc. This data feeds your Revenue and LTV dashboards and can be linked back to the ad that drove the purchase.
-
-**Blueprint — Record Purchase:**
-
-```
-[Make FGlitchPurchaseData]
-  GameInstallId:   (your active install UUID)
-  PurchaseType:    "in_app"
-  PurchaseAmount:  4.99
-  Currency:        "USD"
-  TransactionId:   "receipt-abc-123"   ← prevents duplicate records
-  ItemSku:         "starter_pack"
-  ItemName:        "Beginner Pack"
-  Quantity:        1
-
-[Record Purchase] ← pass the struct in
-```
-
-> 💡 Always include `TransactionId` if your payment provider gives you one. The server uses it to ignore duplicate webhook calls and keep your revenue numbers accurate.
-
-**Where to get `GameInstallId`:**
-This is the UUID returned by the `/installs` endpoint when the session was registered. From Blueprint you can get it via:
-
-```
-[Get Game Instance Subsystem: GlitchAegisSubsystem] → [Get Install Id]
-```
-
----
-
-### 7. Cloud Saves
-
-**What it is:** Store your player's save data on Glitch's servers so it persists across reinstalls and devices.
-
-**Blueprint — Save To Cloud:**
-
-```
-[Make FGlitchSaveData]
-  SlotIndex:     0               ← slot 0–99
-  PayloadBase64: (your save data, base64 encoded)
-  Checksum:      (SHA-256 hex of the raw bytes — see note below)
-  SaveType:      "manual"        ← or "auto" for checkpoints
-
-[Save To Cloud] ← pass the struct in
-```
-
-> ⚠️ **Checksum is required.** You must compute a SHA-256 hash of your raw save bytes (before base64 encoding) and put the hex string in `Checksum`. The server uses it to detect data corruption and resolve sync conflicts. If the field is empty, the save will be rejected. In C++ you can use `FMD5` or a platform SHA-256 function; in Blueprint you may need a small utility function or plugin.
-
----
-
-### 8. Voiding Installs
-
-**What it is:** Sometimes an install record gets created but shouldn't count — a duplicate, a fraudulent entry, or a user who uninstalled immediately. You can mark it as void so it's excluded from your analytics.
-
-**Blueprint — Void Install Record:**
-
-```
-[Void Install Record]
-  InstallUuid: "uuid-of-the-install-record"   ← the UUID from the /installs response
-  bVoid:       true                            ← false to restore it later
-  On Complete → [Branch: Success?]
-```
-
-> ℹ️ `InstallUuid` is the database UUID returned by the install endpoint — it is **not** the same as `user_install_id` (the string you pass in). You can get it from the server response body, or from `Get Install Id` on the subsystem after the first heartbeat.
-
----
-
-## Project Settings Reference
-
-Go to **Edit → Project Settings → Glitch Aegis** to find all settings.
-
-| Setting | Default | Description |
-|---|---|---|
-| **Title Id** | *(empty)* | Your game's ID from the Glitch dashboard. Required. |
-| **Title Token** | *(empty)* | Secret auth token from the Technical Integration page. Required. Keep private. |
-| **Enable Automatic Heartbeat** | `true` | Auto-starts DRM validation, install registration, and heartbeat on launch. |
-| **Heartbeat Interval Seconds** | `30` | How often (in seconds) to ping the retention endpoint. Range: 10–120. |
-| **Game Version** | *(empty)* | Your current build version, e.g. `1.2.3`. Recommended for retention tracking. |
-| **Referral Source** | *(empty)* | How players find your game: `advertising`, `social_media`, `organic`, etc. |
-
----
-
-## Blueprint Reference
-
-All functions are in the **Glitch** category in the Blueprint function library.
-
-| Node | Category | Description |
-|---|---|---|
-| **Validate License Async** | Glitch\|Security | Async DRM check. Fires delegate with `bIsValid` and `UserName`. Use this. |
-| ~~Validate License~~ | Glitch\|Security | *Deprecated.* Use Validate License Async instead. |
-| **Record Game Event** | Glitch\|Telemetry | Send a single Step/Action telemetry event. |
-| **Record Game Events (Bulk)** | Glitch\|Telemetry | Send an array of events in one request. Recommended for mobile. |
-| **Record Purchase** | Glitch\|Revenue | Log a purchase or revenue event. |
-| **Save To Cloud** | Glitch\|CloudSave | Write a save slot to Glitch's servers. |
-| **Void Install Record** | Glitch\|Install | Mark an install as invalid (or restore it). |
-| **Send Fingerprinted Install** | Glitch\|Fingerprinting | Manually send install + hardware fingerprint. |
-
-**On the Subsystem** (`GlitchAegisSubsystem` via Get Game Instance Subsystem):
-
-| Node | Description |
-|---|---|
-| **Start Heartbeat Loop** | Manually starts the payout heartbeat (use if auto-start is disabled). |
-| **Get Install Id** | Returns the current session's install UUID. |
-| **On Drm Validated** *(event)* | Broadcasts after the automatic startup DRM check completes. |
-
----
-
-## C++ Reference
-
-If you're comfortable with C++, you can call the SDK layer directly for more control.
+### C++ Usage
 
 ```cpp
-#include "GlitchSDK.h"
+// Via the subsystem (recommended — handles credentials automatically):
+UGlitchAegisSubsystem* Glitch = GetGameInstance()->GetSubsystem<UGlitchAegisSubsystem>();
 
-// Register an install with full attribution data
-GlitchSDK::FInstallData Data;
-Data.UserInstallId = TEXT("my-unique-player-id");
-Data.Platform      = TEXT("steam");
-Data.GameVersion   = TEXT("1.2.3");
-Data.UtmSource     = TEXT("facebook");
-Data.UtmMedium     = TEXT("cpc");
+// Report progress:
+Glitch->ReportAchievement(TEXT("boss_killed"), 1.0f);
 
-GlitchSDK::FFingerprintComponents FP = GlitchSDK::CollectSystemFingerprint();
+// Cumulative progress (e.g. 50 out of 100 coins):
+Glitch->ReportAchievement(TEXT("coin_collector"), 50.0f);
 
-GlitchSDK::CreateInstall(
-    TitleToken, TitleId, Data,
-    GlitchSDK::FOnGlitchResponse::CreateLambda([](bool bSuccess, const FString& Body)
+// Check if unlocked:
+if (Glitch->IsAchievementUnlocked(TEXT("boss_killed")))
+{
+    // Show golden trophy
+}
+```
+
+### How It Works
+
+When you call `ReportAchievement`, the plugin sends a "Run Submission" to the Glitch server with your stat value. The server checks it against the threshold you defined on the dashboard. If the threshold is met, Glitch unlocks the achievement and the Aegis Bridge overlay shows a toast notification to the player automatically.
+
+### Events
+
+```cpp
+// Listen for achievement load completion:
+Glitch->OnAchievementsLoaded.AddDynamic(this, &AMyGameMode::HandleAchievementsLoaded);
+
+void AMyGameMode::HandleAchievementsLoaded(bool bSuccess)
+{
+    if (bSuccess)
     {
-        // handle response
-    }),
-    &FP  // pass nullptr to skip fingerprint
-);
+        // Achievement cache is now populated — safe to call IsAchievementUnlocked
+    }
+}
+```
 
-// Record a purchase
-GlitchSDK::FPurchaseData Purchase;
-Purchase.GameInstallID  = TEXT("install-uuid-here");
-Purchase.PurchaseType   = TEXT("in_app");
+---
+
+## Leaderboards
+
+### Dashboard Setup
+
+Define leaderboards on the dashboard with an **API Key** (e.g. `high_score`) and **Sort Order** (High to Low or Low to High).
+
+### Blueprint Usage
+
+- **Submit Leaderboard Score** — sends a score
+  - Board Api Key: `high_score`
+  - Score: `5000`
+
+- **Get Leaderboard (Async)** — downloads entries, result via callback
+
+### C++ Usage
+
+```cpp
+UGlitchAegisSubsystem* Glitch = GetGameInstance()->GetSubsystem<UGlitchAegisSubsystem>();
+
+// Submit a score:
+Glitch->SubmitScore(TEXT("high_score"), 5000.0f);
+
+// Or via the static Blueprint library:
+UGlitchAegisLibrary::SubmitLeaderboardScore(TEXT("high_score"), 5000.0f);
+```
+
+---
+
+## Cloud Saves
+
+Cloud saves were already in the original plugin. Use the Blueprint node **Save To Cloud** or the C++ API:
+
+```cpp
+#include "GlitchAegisLibrary.h"
+
+FGlitchSaveData SaveData;
+SaveData.SlotIndex = 1;
+SaveData.PayloadBase64 = FBase64::Encode(RawBytes);
+SaveData.Checksum = ComputeSHA256Hex(RawBytes); // YOU must compute this
+SaveData.SaveType = TEXT("manual");
+
+UGlitchAegisLibrary::SaveToCloud(SaveData);
+```
+
+**Important:** The `Checksum` field must be a valid SHA-256 hex string of your raw (pre-Base64) save bytes. The server uses it for integrity verification and conflict resolution.
+
+### Loading Saves
+
+Use the low-level `GlitchSDK::ListSaves()` to download all slots, then parse the JSON response to find your slot by `slot_index`. The `payload` field contains your Base64-encoded data.
+
+---
+
+## Analytics Events
+
+Track what players do in your game for funnel analysis:
+
+### Blueprint
+
+Use **Record Game Event**:
+- Step: `boss_fight`
+- Action: `player_death`
+- MetadataJSON: `{"weapon":"sword","hp_remaining":0}`
+
+### C++
+
+```cpp
+UGlitchAegisLibrary::RecordGameEvent(TEXT("boss_fight"), TEXT("player_death"), TEXT("{\"weapon\":\"sword\"}"));
+```
+
+### Bulk Events
+
+For mobile or battery-sensitive scenarios, batch events with **Record Game Events (Bulk)**.
+
+---
+
+## Purchases / Revenue
+
+Track in-app purchases and revenue events:
+
+### Blueprint
+
+Use **Record Purchase** with `FGlitchPurchaseData`:
+- GameInstallId: the active session UUID
+- PurchaseType: `"in_app"`
+- PurchaseAmount: `4.99`
+- Currency: `"USD"`
+- TransactionId: your receipt ID (prevents duplicates)
+
+### C++
+
+```cpp
+FGlitchPurchaseData Purchase;
+Purchase.GameInstallId = Glitch->GetInstallId();
+Purchase.PurchaseType = TEXT("in_app");
 Purchase.PurchaseAmount = 4.99f;
-Purchase.Currency       = TEXT("USD");
-Purchase.TransactionID  = TEXT("receipt-abc-123");
+Purchase.Currency = TEXT("USD");
+Purchase.TransactionId = TEXT("txn_12345");
+Purchase.ItemSku = TEXT("starter_pack");
 
-GlitchSDK::RecordPurchase(TitleToken, TitleId, Purchase, Callback);
-
-// Void a fraudulent install
-GlitchSDK::VoidInstall(TitleToken, TitleId, TEXT("install-uuid"), true, Callback);
-
-// Send bulk behavioral events
-TArray<GlitchSDK::FGameEventData> Events;
-// ... populate events ...
-GlitchSDK::RecordEventsBulk(TitleToken, TitleId, Events, Callback);
-```
-
-All functions are async and non-blocking. Callbacks fire on the game thread.
-
----
-
-## File Structure
-
-```
-Plugins/
-└── GlitchAegis/
-    ├── GlitchAegis.uplugin           ← Plugin descriptor (engine version, module list)
-    └── Source/
-        └── GlitchAegis/
-            ├── GlitchAegis.Build.cs  ← Module dependencies (Http, etc.)
-            ├── Public/               ← Headers (accessible to your game code)
-            │   ├── GlitchSDK.h           Core API functions and data structs
-            │   ├── GlitchAegisSettings.h Project Settings panel definition
-            │   ├── GlitchAegisSubsystem.h Auto-start subsystem + OnDrmValidated event
-            │   └── GlitchAegisLibrary.h  Blueprint function library
-            └── Private/              ← Implementation (internal)
-                ├── GlitchSDK.cpp         HTTP layer, JSON serialization, fingerprinting
-                ├── GlitchAegisSubsystem.cpp  Startup logic, heartbeat timer
-                └── GlitchAegisLibrary.cpp    Blueprint node implementations
+UGlitchAegisLibrary::RecordPurchase(Purchase);
 ```
 
 ---
 
-## FAQ
+## Fingerprinting & Attribution
 
-**My game isn't on the Glitch platform yet — can I still test the plugin?**
-Yes. Open your game normally (outside the Glitch launcher) and the plugin will silently do nothing. It only activates when launched with a `-install_id=UUID` command-line argument, which the Glitch launcher injects automatically.
+The plugin collects hardware fingerprint data (CPU model, RAM, display resolution, OS version, etc.) to improve cross-device attribution accuracy. This data is sent with the first install registration.
 
-**What happens if the player goes offline?**
-Glitch allows a 24-hour offline grace period. If the heartbeat can't reach the server, let the player keep playing. After 24 hours, the system requires an online check. You can detect this in the `OnDrmValidated` callback firing `false` after a timeout.
+### Disabling Fingerprinting
 
-**Why does `ValidateLicense` (the old node) exist if it's deprecated?**
-It's kept so existing Blueprint graphs don't break. It fires the HTTP request but the response is discarded, so a 403 "denied" response won't stop anyone from playing. Migrate to **Validate License Async** to actually gate access.
+If you experience crashes on **UE 4.26** or earlier, disable fingerprinting in Project Settings:
 
-**How is "idle time" handled?**
-The Glitch web wrapper monitors mouse and keyboard activity in the browser. If no input is detected for 5 minutes, your heartbeats are flagged as `is_idle: true` server-side and no payout is credited for those minutes. Your plugin doesn't need to handle this — the web layer does it automatically.
+**Edit → Project Settings → Glitch Aegis → Fingerprinting → bEnableFingerprinting = false**
 
-**What is the difference between `user_install_id` and the install UUID?**
-`user_install_id` is a string *you* choose to identify a player (e.g. a Steam ID or your own account ID). The install UUID is a database record ID *Glitch generates* and returns in the `/installs` response. The `VoidInstall` function needs the UUID; the heartbeat needs the `user_install_id`.
+This skips all platform-specific system calls (CPUID, RtlGetVersion, sysctl) that may not be available on older engine versions or unusual OS configurations.
 
-**Can I use this for Steam, Epic, or downloadable builds (not just web)?**
-Yes. The same heartbeat endpoint works for any platform. Set `Platform` to `"steam"` or `"windows"` in your `FInstallData` and bundle your Title Token with the executable.
+### Manual Fingerprinted Install
+
+From Blueprints, use **Send Fingerprinted Install** to explicitly trigger a fingerprinted install registration with a callback.
+
+---
+
+## Steam-to-Glitch Migration
+
+If your game already uses **Steam's Online Subsystem** or raw Steamworks API calls, the Steam Bridge lets you redirect achievements and leaderboards to Glitch without rewriting game logic.
+
+### Prerequisites
+
+1. On the Glitch dashboard, create achievements and leaderboards with **the same API key names** you used on Steam.
+2. Set **bEnableSteamBridge = true** in Project Settings → Glitch Aegis → Steam Bridge.
+
+### Blueprint Usage
+
+Replace your Steam Blueprint nodes with the Glitch equivalents:
+
+| Steam Node | Glitch Bridge Node |
+|---|---|
+| Write Achievement Progress | **Steam Bridge: Set Achievement** |
+| Write Leaderboard Integer | **Steam Bridge: Upload Score** |
+| (no equivalent — call after setting) | **Steam Bridge: Store Stats** |
+
+The pattern is identical to Steam: buffer calls, then flush:
+
+1. **Steam Bridge: Set Achievement** (`"ACH_WIN_GAME"`)
+2. **Steam Bridge: Upload Score** (`"high_score"`, `5000`)
+3. **Steam Bridge: Store Stats** ← flushes everything to Glitch
+
+### C++ Usage
+
+```cpp
+// ─── BEFORE (Steam) ─────────────────────────
+// IOnlineAchievements* Achievements = Online::GetAchievementsInterface();
+// Achievements->WriteAchievements(...);
+
+// ─── AFTER (Glitch Bridge) ──────────────────
+UGlitchAegisLibrary::SteamBridgeSetAchievement(TEXT("ACH_WIN_GAME"));
+UGlitchAegisLibrary::SteamBridgeUploadScore(TEXT("high_score"), 5000.0f);
+UGlitchAegisLibrary::SteamBridgeStoreStats(); // Flushes all to Glitch
+```
+
+### Preprocessor Switch (Dual Build)
+
+Maintain both Steam and Glitch builds from the same codebase:
+
+```cpp
+// In your Build.cs or a shared header:
+// #define USE_GLITCH_BRIDGE 1
+
+#if USE_GLITCH_BRIDGE
+    UGlitchAegisLibrary::SteamBridgeSetAchievement(TEXT("ACH_WIN_GAME"));
+    UGlitchAegisLibrary::SteamBridgeStoreStats();
+#else
+    // Your existing Steam code
+    Achievements->WriteAchievements(...);
+#endif
+```
+
+### What the Bridge Does NOT Handle
+
+- **Steam Networking / Lobbies** — not applicable to Glitch
+- **Steam Workshop / UGC** — not applicable
+- **Steam Overlay** — Glitch has its own Aegis Bridge overlay for achievement toasts
+- **SteamID / Friends** — Glitch has its own user identity system
+
+---
+
+## C++ API Reference
+
+### GlitchAegisSubsystem (auto-created on game launch)
+
+```cpp
+UGlitchAegisSubsystem* Glitch = GetGameInstance()->GetSubsystem<UGlitchAegisSubsystem>();
+```
+
+| Method | Description |
+|--------|------------|
+| `GetInstallId()` | Returns the session UUID |
+| `IsUsingTestInstallId()` | True if using the dev test ID |
+| `StartHeartbeatLoop()` | Manually start heartbeat |
+| `StopHeartbeatLoop()` | Pause heartbeat (e.g. pause menu) |
+| `RunValidation()` | Manually trigger DRM check |
+| `ReportAchievement(ApiKey, Value)` | Report achievement progress |
+| `SubmitScore(BoardKey, Score)` | Submit a leaderboard score |
+| `IsAchievementUnlocked(ApiKey)` | Check local cache (instant) |
+
+| Delegate | Description |
+|----------|------------|
+| `OnDrmValidated(bIsValid, UserName)` | Fires after DRM validation |
+| `OnAchievementsLoaded(bSuccess)` | Fires after achievement cache loads |
+
+### GlitchAegisLibrary (static Blueprint functions)
+
+| Function | Category | Description |
+|----------|----------|------------|
+| `ValidateLicenseAsync(OnComplete)` | Security | Async DRM check |
+| `RecordGameEvent(Step, Action, Meta)` | Telemetry | Single analytics event |
+| `RecordGameEventsBulk(Events)` | Telemetry | Batch analytics events |
+| `SaveToCloud(SaveData)` | Cloud Save | Upload save slot |
+| `RecordPurchase(PurchaseData)` | Revenue | Record purchase/revenue |
+| `VoidInstall(UUID, bVoid, OnComplete)` | Install | Mark install as void |
+| `SendFingerprintedInstall(OnComplete)` | Fingerprinting | Full fingerprinted install |
+| `ReportAchievementProgress(Key, Value)` | Achievements | **NEW** Report progress |
+| `IsAchievementUnlocked(Key)` | Achievements | **NEW** Check local cache |
+| `RefreshAchievements()` | Achievements | **NEW** Force reload |
+| `SubmitLeaderboardScore(Key, Score)` | Leaderboards | **NEW** Submit score |
+| `GetLeaderboardAsync(Key, OnComplete)` | Leaderboards | **NEW** Download entries |
+| `SteamBridgeSetAchievement(Name)` | Steam Bridge | **NEW** Buffer achievement |
+| `SteamBridgeUploadScore(Key, Score)` | Steam Bridge | **NEW** Buffer score |
+| `SteamBridgeStoreStats()` | Steam Bridge | **NEW** Flush to Glitch |
+
+### GlitchSDK Namespace (low-level C++)
+
+For advanced use cases, all HTTP calls are available in the `GlitchSDK` namespace. See `GlitchSDK.h` for the complete API including `CreateInstall`, `StoreSave`, `ResolveSaveConflict`, `RecordEventsBulk`, `ToggleWishlist`, and more.
+
+---
+
+## UE 4.26 Compatibility
+
+The plugin is tested on UE 4.26 through 5.7+. Known considerations:
+
+- **Fingerprinting crash on 4.26:** Set `bEnableFingerprinting = false` in Project Settings. The CPUID and RtlGetVersion calls are safe on most Windows configurations, but some UE 4.26 builds have stricter platform header configurations that can cause issues.
+
+- **C++ standard:** The Build.cs automatically sets C++17 on UE 4.x/5.0–5.2 and defers to the engine default (C++20) on 5.3+. No manual configuration needed.
+
+- **Warning suppression:** The Build.cs handles the three different APIs Epic used for `UndefinedIdentifierWarningLevel` across engine versions (`bEnableUndefinedIdentifierWarnings` for 4.x/5.0–5.4, `UndefinedIdentifierWarningLevel` for 5.5, `CppCompileWarningSettings.UndefinedIdentifierWarningLevel` for 5.6+).
+
+- **DeveloperSettings module:** Available since UE 4.25. If you're on 4.24 or earlier (rare), you'll need to move settings to a different config approach.
+
+---
+
+## Troubleshooting
+
+### "No -install_id= on command line" warning in PIE
+
+This is normal when running in the editor. Paste your **Test Install ID** (from the dashboard Technical page) into **Project Settings → Glitch Aegis → Development → Test Install ID**.
+
+### Heartbeat not starting
+
+Check that:
+1. `bEnableAutomaticHeartbeat` is true
+2. `TitleId` and `TitleToken` are not empty
+3. An `install_id` is available (Test Install ID or command-line arg)
+
+### Achievement not unlocking
+
+- Confirm the API Key matches exactly (case-sensitive) between your code and the Glitch dashboard
+- Confirm the progress value meets or exceeds the Unlock Threshold
+- Check the Output Log for "GlitchAegis:" messages
+
+### DRM shows error screen during development
+
+Set `bRequireValidation = false` while developing. Only enable it for production builds.
+
+### Cloud save returns "Missing checksum"
+
+You must compute a SHA-256 hex hash of your raw save bytes BEFORE Base64 encoding and pass it in `SaveData.Checksum`. The server rejects saves without a valid checksum.
+
+### Build fails on Mac/Linux
+
+Ensure the HTTP module is available. The plugin depends on `Core`, `CoreUObject`, `Engine`, `DeveloperSettings`, `HTTP`, `Json`, and `JsonUtilities` — all are engine modules available on all platforms.
 
 ---
 
 ## Support
 
-- 💬 [Discord](https://discord.gg/RPYU9KgEmU) — fastest response
-- 📖 [Glitch Developer Docs](https://glitch.fun)
-- 🐛 [GitHub Issues](https://github.com/Glitch-Gaming-Platform/Glitch-Unreal-Plugin/issues)
+- **Dashboard**: [glitch.fun/games/admin](https://glitch.fun/games/admin)
+- **Documentation**: [docs.glitch.fun](https://docs.glitch.fun)
+- **Discord**: [discord.gg/RPYU9KgEmU](https://discord.gg/RPYU9KgEmU)
+- **Issues**: [GitHub Issues](https://github.com/Glitch-Gaming-Platform/Glitch-Unreal-Plugin/issues)
+
+---
+
+## License
+
+Free to use in any project. Credit appreciated but not required.
