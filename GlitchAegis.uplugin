@@ -1,9 +1,9 @@
 {
 	"FileVersion": 3,
-	"Version": 1,
-	"VersionName": "1.0.0",
+	"Version": 2,
+	"VersionName": "2.0.0",
 	"FriendlyName": "Glitch Gaming",
-	"Description": "No-code integration for Glitch payouts, DRM, analytics, and attribution.",
+	"Description": "No-code integration for Glitch payouts, DRM, achievements, leaderboards, cloud saves, analytics, purchases, fingerprinting, and optional Steam-to-Glitch migration.",
 	"Category": "Analytics",
 	"CreatedBy": "Glitch Gaming Platform",
 	"CreatedByURL": "https://glitch.fun",

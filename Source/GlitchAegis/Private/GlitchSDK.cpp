@@ -143,12 +143,11 @@ namespace GlitchSDK
 	void SendHeartbeat(const FString& TitleToken, const FString& TitleId, const FString& InstallId, const FString& AnalyticsSessionId, FOnGlitchResponse OnComplete)
 	{
 		// Heartbeat has its own dedicated endpoint and payload — separate from installs.
-		const FString Url = FString::Printf(TEXT("%s/titles/%s/installs/%s/heartbeat"), *BaseUrl, *TitleId, *InstallId);
+		const FString Url = FString::Printf(TEXT("%s/titles/%s/installs"), *BaseUrl, *TitleId);
 
 		const FString Body = FString::Printf(
-			TEXT("{\"user_install_id\":\"%s\",\"analytics_session_id\":\"%s\",\"platform\":\"pc\"}"),
-			*Internal::EscapeJSON(InstallId),
-			*Internal::EscapeJSON(AnalyticsSessionId)
+			TEXT("{\"user_install_id\":\"%s\",\"platform\":\"pc\"}"),
+			*Internal::EscapeJSON(InstallId)
 		);
 
 		Internal::PostJSON(Url, TitleToken, Body, OnComplete);
@@ -732,6 +731,95 @@ namespace GlitchSDK
 		const FString Body = FString::Printf(TEXT("{\"void\":%s}"),
 		                                     bVoid ? TEXT("true") : TEXT("false"));
 		Internal::PatchJSON(Url, TitleToken, Body, OnComplete);
+	}
+
+
+	// =========================================================================
+	// Progression System (Achievements + Leaderboards) — NEW in v2.0
+	// =========================================================================
+
+	void SubmitProgressionRun(
+		const FString& TitleToken,
+		const FString& TitleId,
+		const FString& InstallId,
+		const TMap<FString, float>& Stats,
+		const TMap<FString, float>& Scores,
+		const TMap<FString, FString>& Metadata,
+		FOnGlitchResponse OnComplete)
+	{
+		const FString Url = FString::Printf(TEXT("%s/titles/%s/installs/%s/submit"), *BaseUrl, *TitleId, *InstallId);
+
+		FString Body = TEXT("{");
+		Body += FString::Printf(TEXT("\"idempotency_key\":\"%s\""), *FGuid::NewGuid().ToString());
+		Body += TEXT(",\"payload\":{");
+
+		bool bNeedsComma = false;
+
+		if (Stats.Num() > 0)
+		{
+			Body += TEXT("\"stats\":{");
+			bool bFirst = true;
+			for (const auto& Pair : Stats)
+			{
+				if (!bFirst) Body += TEXT(",");
+				Body += FString::Printf(TEXT("\"%s\":%f"), *Internal::EscapeJSON(Pair.Key), Pair.Value);
+				bFirst = false;
+			}
+			Body += TEXT("}");
+			bNeedsComma = true;
+		}
+
+		if (Scores.Num() > 0)
+		{
+			if (bNeedsComma) Body += TEXT(",");
+			Body += TEXT("\"scores\":{");
+			bool bFirst = true;
+			for (const auto& Pair : Scores)
+			{
+				if (!bFirst) Body += TEXT(",");
+				Body += FString::Printf(TEXT("\"%s\":%f"), *Internal::EscapeJSON(Pair.Key), Pair.Value);
+				bFirst = false;
+			}
+			Body += TEXT("}");
+			bNeedsComma = true;
+		}
+
+		if (Metadata.Num() > 0)
+		{
+			if (bNeedsComma) Body += TEXT(",");
+			Body += TEXT("\"metadata\":{");
+			bool bFirst = true;
+			for (const auto& Pair : Metadata)
+			{
+				if (!bFirst) Body += TEXT(",");
+				Body += FString::Printf(TEXT("\"%s\":\"%s\""), *Internal::EscapeJSON(Pair.Key), *Internal::EscapeJSON(Pair.Value));
+				bFirst = false;
+			}
+			Body += TEXT("}");
+		}
+
+		Body += TEXT("}}");
+		Internal::PostJSON(Url, TitleToken, Body, OnComplete);
+	}
+
+	void GetPlayerAchievements(
+		const FString& TitleToken,
+		const FString& TitleId,
+		const FString& InstallId,
+		FOnGlitchResponse OnComplete)
+	{
+		const FString Url = FString::Printf(TEXT("%s/titles/%s/installs/%s/achievements"), *BaseUrl, *TitleId, *InstallId);
+		Internal::GetRequest(Url, TitleToken, OnComplete);
+	}
+
+	void GetLeaderboard(
+		const FString& TitleToken,
+		const FString& TitleId,
+		const FString& BoardApiKey,
+		FOnGlitchResponse OnComplete)
+	{
+		const FString Url = FString::Printf(TEXT("%s/titles/%s/leaderboards/%s"), *BaseUrl, *TitleId, *BoardApiKey);
+		Internal::GetRequest(Url, TitleToken, OnComplete);
 	}
 
 } // namespace GlitchSDK

@@ -294,4 +294,37 @@ namespace GlitchSDK
 		void GetRequest(const FString& Url, const FString& Token, FOnGlitchResponse OnComplete);
 	}
 
+	// -------------------------------------------------------------------------
+	// Progression System (Achievements + Leaderboards)
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Submits a "Run" to the progression system.
+	 * This single endpoint handles BOTH achievement unlocks AND leaderboard submissions.
+	 * Stats: achievement api_key -> value (server checks thresholds)
+	 * Scores: leaderboard api_key -> score value
+	 */
+	void SubmitProgressionRun(
+		const FString& TitleToken,
+		const FString& TitleId,
+		const FString& InstallId,
+		const TMap<FString, float>& Stats,
+		const TMap<FString, float>& Scores,
+		const TMap<FString, FString>& Metadata,
+		FOnGlitchResponse OnComplete);
+
+	/** Download the player's achievement list (locked/unlocked/in-progress) */
+	void GetPlayerAchievements(
+		const FString& TitleToken,
+		const FString& TitleId,
+		const FString& InstallId,
+		FOnGlitchResponse OnComplete);
+
+	/** Download leaderboard entries for a given board */
+	void GetLeaderboard(
+		const FString& TitleToken,
+		const FString& TitleId,
+		const FString& BoardApiKey,
+		FOnGlitchResponse OnComplete);
+
 } // namespace GlitchSDK

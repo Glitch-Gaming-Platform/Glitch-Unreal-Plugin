@@ -8,6 +8,10 @@
  * bIsValid = false → denied (403), no install_id, or validation required but missing
  * UserName         → player's Glitch username if valid
  */
+
+/** Fired when achievements finish loading */
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnAchievementsLoaded, bool, bSuccess);
+
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnAegisDrmResult, bool, bIsValid, FString, UserName);
 
 /**
@@ -101,13 +105,36 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Glitch|Aegis")
 	bool IsUsingTestInstallId() const { return bUsingTestInstallId; }
 
+
+	// -----------------------------------------------------------------------
+	// Achievements
+	// -----------------------------------------------------------------------
+
+	/** Fires when achievement data finishes loading from the server */
+	UPROPERTY(BlueprintAssignable, Category = "Glitch|Achievements")
+	FOnAchievementsLoaded OnAchievementsLoaded;
+
+	/** Report progress toward an achievement (server checks thresholds) */
+	UFUNCTION(BlueprintCallable, Category = "Glitch|Achievements")
+	void ReportAchievement(FString ApiKey, float Value = 1.0f);
+
+	/** Submit a score to a leaderboard */
+	UFUNCTION(BlueprintCallable, Category = "Glitch|Leaderboards")
+	void SubmitScore(FString BoardApiKey, float Score);
+
+	/** Check if an achievement is unlocked (local cache) */
+	UFUNCTION(BlueprintPure, Category = "Glitch|Achievements")
+	bool IsAchievementUnlocked(FString ApiKey) const;
+
 private:
 	void OnHeartbeatTimerTick();
+	void LoadAchievements();
 	void RunDrmValidation();
 	void HandleValidationResult(bool bIsValid, const FString& UserName);
 	void ShowErrorScreen();
 
 	FTimerHandle HeartbeatTimerHandle;
 	FString      CachedInstallId;
+	TMap<FString, FString> AchievementCache; // api_key -> status
 	bool         bUsingTestInstallId = false;
 };

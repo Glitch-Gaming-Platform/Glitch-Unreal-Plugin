@@ -329,3 +329,207 @@ void UGlitchAegisLibrary::SendFingerprintedInstall(FOnGlitchResult OnComplete)
 		&FP
 	);
 }
+
+// ============================================================================
+// Achievements — NEW in v2.0
+// ============================================================================
+
+void UGlitchAegisLibrary::ReportAchievementProgress(FString ApiKey, float Value)
+{
+	const UGlitchAegisSettings* Settings = GetDefault<UGlitchAegisSettings>();
+	const FString InstallId = GetEffectiveInstallId();
+	if (InstallId.IsEmpty() || Settings->TitleToken.IsEmpty() || Settings->TitleId.IsEmpty()) return;
+
+	TMap<FString, float> Stats;
+	Stats.Add(ApiKey, Value);
+	TMap<FString, float> EmptyScores;
+	TMap<FString, FString> EmptyMeta;
+
+	GlitchSDK::SubmitProgressionRun(
+		Settings->TitleToken, Settings->TitleId, InstallId,
+		Stats, EmptyScores, EmptyMeta,
+		FOnGlitchResponse::CreateLambda(
+			[ApiKey, Value](bool bSuccess, const FString& Body)
+			{
+				if (bSuccess)
+				{
+					UE_LOG(LogTemp, Log, TEXT("GlitchAegis: Achievement progress: %s = %f"), *ApiKey, Value);
+				}
+				else
+				{
+					UE_LOG(LogTemp, Warning, TEXT("GlitchAegis: Achievement report failed: %s"), *Body);
+				}
+			}
+		)
+	);
+}
+
+bool UGlitchAegisLibrary::IsAchievementUnlocked(FString ApiKey)
+{
+	// Try to find the subsystem for cached data
+	if (GEngine)
+	{
+		for (const FWorldContext& Context : GEngine->GetWorldContexts())
+		{
+			if (Context.World())
+			{
+				UGameInstance* GI = Context.World()->GetGameInstance();
+				if (GI)
+				{
+					UGlitchAegisSubsystem* Sub = GI->GetSubsystem<UGlitchAegisSubsystem>();
+					if (Sub)
+					{
+						return Sub->IsAchievementUnlocked(ApiKey);
+					}
+				}
+			}
+		}
+	}
+	return false;
+}
+
+void UGlitchAegisLibrary::RefreshAchievements()
+{
+	// Find subsystem and trigger reload
+	if (GEngine)
+	{
+		for (const FWorldContext& Context : GEngine->GetWorldContexts())
+		{
+			if (Context.World())
+			{
+				UGameInstance* GI = Context.World()->GetGameInstance();
+				if (GI)
+				{
+					UGlitchAegisSubsystem* Sub = GI->GetSubsystem<UGlitchAegisSubsystem>();
+					if (Sub)
+					{
+						// Re-trigger achievement load via the subsystem
+						const UGlitchAegisSettings* Settings = GetDefault<UGlitchAegisSettings>();
+						const FString InstallId = GetEffectiveInstallId();
+						if (!InstallId.IsEmpty() && !Settings->TitleToken.IsEmpty())
+						{
+							GlitchSDK::GetPlayerAchievements(
+								Settings->TitleToken, Settings->TitleId, InstallId,
+								FOnGlitchResponse::CreateLambda([](bool bSuccess, const FString& Body)
+								{
+									UE_LOG(LogTemp, Log, TEXT("GlitchAegis: Achievements refreshed (%s)."),
+										bSuccess ? TEXT("OK") : TEXT("failed"));
+								})
+							);
+						}
+						return;
+					}
+				}
+			}
+		}
+	}
+}
+
+// ============================================================================
+// Leaderboards — NEW in v2.0
+// ============================================================================
+
+void UGlitchAegisLibrary::SubmitLeaderboardScore(FString BoardApiKey, float Score)
+{
+	const UGlitchAegisSettings* Settings = GetDefault<UGlitchAegisSettings>();
+	const FString InstallId = GetEffectiveInstallId();
+	if (InstallId.IsEmpty() || Settings->TitleToken.IsEmpty() || Settings->TitleId.IsEmpty()) return;
+
+	TMap<FString, float> EmptyStats;
+	TMap<FString, float> Scores;
+	Scores.Add(BoardApiKey, Score);
+	TMap<FString, FString> EmptyMeta;
+
+	GlitchSDK::SubmitProgressionRun(
+		Settings->TitleToken, Settings->TitleId, InstallId,
+		EmptyStats, Scores, EmptyMeta,
+		FOnGlitchResponse::CreateLambda(
+			[BoardApiKey, Score](bool bSuccess, const FString& Body)
+			{
+				if (bSuccess)
+				{
+					UE_LOG(LogTemp, Log, TEXT("GlitchAegis: Score submitted: %s = %f"), *BoardApiKey, Score);
+				}
+				else
+				{
+					UE_LOG(LogTemp, Warning, TEXT("GlitchAegis: Score submission failed: %s"), *Body);
+				}
+			}
+		)
+	);
+}
+
+void UGlitchAegisLibrary::GetLeaderboardAsync(FString BoardApiKey, FOnGlitchResult OnComplete)
+{
+	const UGlitchAegisSettings* Settings = GetDefault<UGlitchAegisSettings>();
+	if (Settings->TitleToken.IsEmpty() || Settings->TitleId.IsEmpty())
+	{
+		OnComplete.ExecuteIfBound(false, TEXT("Missing TitleToken or TitleId"));
+		return;
+	}
+
+	GlitchSDK::GetLeaderboard(
+		Settings->TitleToken, Settings->TitleId, BoardApiKey,
+		FOnGlitchResponse::CreateLambda(
+			[OnComplete](bool bSuccess, const FString& Body)
+			{
+				OnComplete.ExecuteIfBound(bSuccess, Body);
+			}
+		)
+	);
+}
+
+// ============================================================================
+// Steam-to-Glitch Bridge — NEW in v2.0
+// ============================================================================
+
+// Static buffers for the Steam bridge pattern
+static TMap<FString, float> GlitchSteamPendingStats;
+static TMap<FString, float> GlitchSteamPendingScores;
+
+void UGlitchAegisLibrary::SteamBridgeSetAchievement(FString AchievementApiName)
+{
+	GlitchSteamPendingStats.Add(AchievementApiName, 100.0f);
+	UE_LOG(LogTemp, Log, TEXT("GlitchAegis Steam Bridge: SetAchievement('%s') buffered."), *AchievementApiName);
+}
+
+void UGlitchAegisLibrary::SteamBridgeUploadScore(FString BoardApiKey, float Score)
+{
+	GlitchSteamPendingScores.Add(BoardApiKey, Score);
+	UE_LOG(LogTemp, Log, TEXT("GlitchAegis Steam Bridge: UploadScore('%s', %f) buffered."), *BoardApiKey, Score);
+}
+
+void UGlitchAegisLibrary::SteamBridgeStoreStats()
+{
+	const UGlitchAegisSettings* Settings = GetDefault<UGlitchAegisSettings>();
+	const FString InstallId = GetEffectiveInstallId();
+	if (InstallId.IsEmpty() || Settings->TitleToken.IsEmpty() || Settings->TitleId.IsEmpty())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("GlitchAegis Steam Bridge: Cannot flush — missing credentials or install_id."));
+		return;
+	}
+
+	TMap<FString, FString> EmptyMeta;
+
+	if (GlitchSteamPendingStats.Num() > 0 || GlitchSteamPendingScores.Num() > 0)
+	{
+		GlitchSDK::SubmitProgressionRun(
+			Settings->TitleToken, Settings->TitleId, InstallId,
+			GlitchSteamPendingStats, GlitchSteamPendingScores, EmptyMeta,
+			FOnGlitchResponse::CreateLambda([](bool bSuccess, const FString& Body)
+			{
+				if (bSuccess)
+				{
+					UE_LOG(LogTemp, Log, TEXT("GlitchAegis Steam Bridge: Stats flushed to Glitch."));
+				}
+				else
+				{
+					UE_LOG(LogTemp, Warning, TEXT("GlitchAegis Steam Bridge: Flush failed: %s"), *Body);
+				}
+			})
+		);
+
+		GlitchSteamPendingStats.Empty();
+		GlitchSteamPendingScores.Empty();
+	}
+}

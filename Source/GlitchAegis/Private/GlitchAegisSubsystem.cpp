@@ -94,7 +94,13 @@ void UGlitchAegisSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 			D.GameVersion    = Settings->GameVersion;
 			D.ReferralSource = Settings->ReferralSource;
 
-			GlitchSDK::FFingerprintComponents FP = GlitchSDK::CollectSystemFingerprint();
+			const FFingerprintComponents* FPPtr = nullptr;
+			GlitchSDK::FFingerprintComponents FP;
+			if (Settings->bEnableFingerprinting)
+			{
+				FP = GlitchSDK::CollectSystemFingerprint();
+				FPPtr = &FP;
+			}
 
 			GlitchSDK::CreateInstall(
 				Settings->TitleToken,
@@ -111,13 +117,20 @@ void UGlitchAegisSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 						UE_LOG(LogTemp, Warning, TEXT("GlitchAegis: Install registration failed: %s"), *Body);
 					}
 				}),
-				&FP
+				FPPtr
 			);
 		}
 
 		// Step 2 — Start the payout / retention heartbeat timer.
 		StartHeartbeatLoop();
 	}
+
+	// Step 3 — Load achievements if enabled
+	if (Settings->bEnableAchievements && Settings->bAutoLoadAchievements && bHasId)
+	{
+		LoadAchievements();
+	}
+
 	else if (!Settings->bEnableAutomaticHeartbeat)
 	{
 		UE_LOG(LogTemp, Log,
@@ -307,6 +320,153 @@ void UGlitchAegisSubsystem::HandleValidationResult(bool bIsValid, const FString&
 			ShowErrorScreen();
 		}
 	}
+}
+
+// ---------------------------------------------------------------------------
+// LoadAchievements
+// ---------------------------------------------------------------------------
+void UGlitchAegisSubsystem::LoadAchievements()
+{
+	const UGlitchAegisSettings* Settings = GetDefault<UGlitchAegisSettings>();
+	if (CachedInstallId.IsEmpty() || Settings->TitleToken.IsEmpty()) return;
+
+	TWeakObjectPtr<UGlitchAegisSubsystem> WeakThis(this);
+
+	GlitchSDK::GetPlayerAchievements(
+		Settings->TitleToken,
+		Settings->TitleId,
+		CachedInstallId,
+		FOnGlitchResponse::CreateLambda(
+			[WeakThis](bool bSuccess, const FString& Body)
+			{
+				UGlitchAegisSubsystem* Self = WeakThis.Get();
+				if (!Self) return;
+
+				if (bSuccess)
+				{
+					// Simple parsing: extract api_key and status pairs
+					// Format: [{"api_key":"X","status":"unlocked",...},...]
+					Self->AchievementCache.Empty();
+					int32 SearchFrom = 0;
+					while (true)
+					{
+						int32 KeyStart = Body.Find(TEXT(""api_key":""), ESearchCase::IgnoreCase, ESearchDir::FromStart, SearchFrom);
+						if (KeyStart == INDEX_NONE) break;
+						KeyStart += 11; // length of "api_key":"
+						int32 KeyEnd = Body.Find(TEXT("""), ESearchCase::IgnoreCase, ESearchDir::FromStart, KeyStart);
+						if (KeyEnd == INDEX_NONE) break;
+						FString ApiKey = Body.Mid(KeyStart, KeyEnd - KeyStart);
+
+						int32 StatusStart = Body.Find(TEXT(""status":""), ESearchCase::IgnoreCase, ESearchDir::FromStart, KeyEnd);
+						FString Status = TEXT("locked");
+						if (StatusStart != INDEX_NONE)
+						{
+							StatusStart += 10;
+							int32 StatusEnd = Body.Find(TEXT("""), ESearchCase::IgnoreCase, ESearchDir::FromStart, StatusStart);
+							if (StatusEnd != INDEX_NONE)
+							{
+								Status = Body.Mid(StatusStart, StatusEnd - StatusStart);
+							}
+						}
+
+						Self->AchievementCache.Add(ApiKey, Status);
+						SearchFrom = KeyEnd + 1;
+					}
+					UE_LOG(LogTemp, Log, TEXT("GlitchAegis: Achievements loaded (%d entries)."), Self->AchievementCache.Num());
+				}
+				else
+				{
+					UE_LOG(LogTemp, Warning, TEXT("GlitchAegis: Could not load achievements: %s"), *Body);
+				}
+				Self->OnAchievementsLoaded.Broadcast(bSuccess);
+			}
+		)
+	);
+}
+
+// ---------------------------------------------------------------------------
+// ReportAchievement
+// ---------------------------------------------------------------------------
+void UGlitchAegisSubsystem::ReportAchievement(FString ApiKey, float Value)
+{
+	const UGlitchAegisSettings* Settings = GetDefault<UGlitchAegisSettings>();
+	if (CachedInstallId.IsEmpty() || Settings->TitleToken.IsEmpty()) return;
+
+	TMap<FString, float> Stats;
+	Stats.Add(ApiKey, Value);
+	TMap<FString, float> EmptyScores;
+	TMap<FString, FString> EmptyMeta;
+
+	TWeakObjectPtr<UGlitchAegisSubsystem> WeakThis(this);
+
+	GlitchSDK::SubmitProgressionRun(
+		Settings->TitleToken, Settings->TitleId, CachedInstallId,
+		Stats, EmptyScores, EmptyMeta,
+		FOnGlitchResponse::CreateLambda(
+			[WeakThis, ApiKey](bool bSuccess, const FString& Body)
+			{
+				if (bSuccess)
+				{
+					UE_LOG(LogTemp, Log, TEXT("GlitchAegis: Achievement progress reported: %s"), *ApiKey);
+					// Check for newly_unlocked in response
+					if (Body.Contains(TEXT("newly_unlocked")))
+					{
+						UGlitchAegisSubsystem* Self = WeakThis.Get();
+						if (Self)
+						{
+							Self->AchievementCache.Add(ApiKey, TEXT("unlocked"));
+						}
+						UE_LOG(LogTemp, Log, TEXT("GlitchAegis: Achievement UNLOCKED: %s"), *ApiKey);
+					}
+				}
+				else
+				{
+					UE_LOG(LogTemp, Warning, TEXT("GlitchAegis: Achievement report failed: %s"), *Body);
+				}
+			}
+		)
+	);
+}
+
+// ---------------------------------------------------------------------------
+// SubmitScore
+// ---------------------------------------------------------------------------
+void UGlitchAegisSubsystem::SubmitScore(FString BoardApiKey, float Score)
+{
+	const UGlitchAegisSettings* Settings = GetDefault<UGlitchAegisSettings>();
+	if (CachedInstallId.IsEmpty() || Settings->TitleToken.IsEmpty()) return;
+
+	TMap<FString, float> EmptyStats;
+	TMap<FString, float> Scores;
+	Scores.Add(BoardApiKey, Score);
+	TMap<FString, FString> EmptyMeta;
+
+	GlitchSDK::SubmitProgressionRun(
+		Settings->TitleToken, Settings->TitleId, CachedInstallId,
+		EmptyStats, Scores, EmptyMeta,
+		FOnGlitchResponse::CreateLambda(
+			[BoardApiKey, Score](bool bSuccess, const FString& Body)
+			{
+				if (bSuccess)
+				{
+					UE_LOG(LogTemp, Log, TEXT("GlitchAegis: Score submitted: %s = %f"), *BoardApiKey, Score);
+				}
+				else
+				{
+					UE_LOG(LogTemp, Warning, TEXT("GlitchAegis: Score submission failed: %s"), *Body);
+				}
+			}
+		)
+	);
+}
+
+// ---------------------------------------------------------------------------
+// IsAchievementUnlocked
+// ---------------------------------------------------------------------------
+bool UGlitchAegisSubsystem::IsAchievementUnlocked(FString ApiKey) const
+{
+	const FString* Status = AchievementCache.Find(ApiKey);
+	return Status && *Status == TEXT("unlocked");
 }
 
 // ---------------------------------------------------------------------------
