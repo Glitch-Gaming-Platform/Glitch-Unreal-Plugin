@@ -31,67 +31,6 @@ struct FGlitchSaveData
 	/** "manual" (player-triggered) or "auto" (checkpoint) */
 	UPROPERTY(BlueprintReadWrite, Category = "Glitch|CloudSave")
 	FString SaveType = TEXT("manual");
-
-	// -----------------------------------------------------------------------
-	// Achievements (NEW in v2.0)
-	// -----------------------------------------------------------------------
-
-	/** Reports progress toward an achievement. If the threshold is met,
-	 *  Glitch unlocks it automatically and the Aegis overlay shows a toast.
-	 *  ApiKey: The nickname from the dashboard (e.g. "boss_killed")
-	 *  Value: Progress amount. Use 1 for simple unlocks. */
-	UFUNCTION(BlueprintCallable, Category = "Glitch|Achievements",
-		meta=(DisplayName="Report Achievement Progress"))
-	static void ReportAchievementProgress(FString ApiKey, float Value = 1.0f);
-
-	/** Check if an achievement is unlocked (uses local cache, instant). */
-	UFUNCTION(BlueprintPure, Category = "Glitch|Achievements",
-		meta=(DisplayName="Is Achievement Unlocked"))
-	static bool IsAchievementUnlocked(FString ApiKey);
-
-	/** Force-refresh the achievement cache from the server. */
-	UFUNCTION(BlueprintCallable, Category = "Glitch|Achievements",
-		meta=(DisplayName="Refresh Achievements"))
-	static void RefreshAchievements();
-
-	// -----------------------------------------------------------------------
-	// Leaderboards (NEW in v2.0)
-	// -----------------------------------------------------------------------
-
-	/** Submits a score to a leaderboard.
-	 *  BoardApiKey: The API key from the dashboard (e.g. "high_score")
-	 *  Score: The numeric value to submit */
-	UFUNCTION(BlueprintCallable, Category = "Glitch|Leaderboards",
-		meta=(DisplayName="Submit Leaderboard Score"))
-	static void SubmitLeaderboardScore(FString BoardApiKey, float Score);
-
-	/** Downloads leaderboard entries. Result arrives via OnComplete callback. */
-	UFUNCTION(BlueprintCallable, Category = "Glitch|Leaderboards",
-		meta=(DisplayName="Get Leaderboard (Async)"))
-	static void GetLeaderboardAsync(FString BoardApiKey, FOnGlitchResult OnComplete);
-
-	// -----------------------------------------------------------------------
-	// Steam-to-Glitch Bridge (NEW in v2.0)
-	// -----------------------------------------------------------------------
-
-	/** Drop-in replacement for Steam's SetAchievement.
-	 *  Buffers the unlock until FlushSteamBridge is called. */
-	UFUNCTION(BlueprintCallable, Category = "Glitch|Steam Bridge",
-		meta=(DisplayName="Steam Bridge: Set Achievement"))
-	static void SteamBridgeSetAchievement(FString AchievementApiName);
-
-	/** Drop-in replacement for Steam's UploadLeaderboardScore.
-	 *  Buffers the score until FlushSteamBridge is called. */
-	UFUNCTION(BlueprintCallable, Category = "Glitch|Steam Bridge",
-		meta=(DisplayName="Steam Bridge: Upload Score"))
-	static void SteamBridgeUploadScore(FString BoardApiKey, float Score);
-
-	/** Drop-in replacement for Steam's StoreStats.
-	 *  Flushes all buffered achievements and scores to Glitch. */
-	UFUNCTION(BlueprintCallable, Category = "Glitch|Steam Bridge",
-		meta=(DisplayName="Steam Bridge: Store Stats"))
-	static void SteamBridgeStoreStats();
-
 };
 
 /** Data for a single purchase / revenue event */
@@ -293,4 +232,64 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Glitch|Fingerprinting",
 		meta=(DisplayName="Send Fingerprinted Install"))
 	static void SendFingerprintedInstall(FOnGlitchResult OnComplete);
+
+	// -----------------------------------------------------------------------
+	// Achievements
+	// -----------------------------------------------------------------------
+
+	/** Reports progress toward an achievement. If the threshold is met,
+	 *  Glitch unlocks it automatically and the Aegis overlay shows a toast.
+	 *  ApiKey: The nickname from the dashboard (e.g. "boss_killed")
+	 *  Value: Progress amount. Use 1 for simple unlocks. */
+	UFUNCTION(BlueprintCallable, Category = "Glitch|Achievements",
+		meta=(DisplayName="Report Achievement Progress"))
+	static void ReportAchievementProgress(FString ApiKey, float Value = 1.0f);
+
+	/** Check if an achievement is unlocked (uses local cache, instant). */
+	UFUNCTION(BlueprintPure, Category = "Glitch|Achievements",
+		meta=(DisplayName="Is Achievement Unlocked"))
+	static bool IsAchievementUnlocked(FString ApiKey);
+
+	/** Force-refresh the achievement cache from the server. */
+	UFUNCTION(BlueprintCallable, Category = "Glitch|Achievements",
+		meta=(DisplayName="Refresh Achievements"))
+	static void RefreshAchievements();
+
+	// -----------------------------------------------------------------------
+	// Leaderboards
+	// -----------------------------------------------------------------------
+
+	/** Submits a score to a leaderboard.
+	 *  BoardApiKey: The API key from the dashboard (e.g. "high_score")
+	 *  Score: The numeric value to submit */
+	UFUNCTION(BlueprintCallable, Category = "Glitch|Leaderboards",
+		meta=(DisplayName="Submit Leaderboard Score"))
+	static void SubmitLeaderboardScore(FString BoardApiKey, float Score);
+
+	/** Downloads leaderboard entries. Result arrives via OnComplete callback. */
+	UFUNCTION(BlueprintCallable, Category = "Glitch|Leaderboards",
+		meta=(DisplayName="Get Leaderboard (Async)"))
+	static void GetLeaderboardAsync(FString BoardApiKey, FOnGlitchResult OnComplete);
+
+	// -----------------------------------------------------------------------
+	// Steam-to-Glitch Bridge
+	// -----------------------------------------------------------------------
+
+	/** Drop-in replacement for Steam's SetAchievement.
+	 *  Buffers the unlock until FlushSteamBridge is called. */
+	UFUNCTION(BlueprintCallable, Category = "Glitch|Steam Bridge",
+		meta=(DisplayName="Steam Bridge: Set Achievement"))
+	static void SteamBridgeSetAchievement(FString AchievementApiName);
+
+	/** Drop-in replacement for Steam's UploadLeaderboardScore.
+	 *  Buffers the score until FlushSteamBridge is called. */
+	UFUNCTION(BlueprintCallable, Category = "Glitch|Steam Bridge",
+		meta=(DisplayName="Steam Bridge: Upload Score"))
+	static void SteamBridgeUploadScore(FString BoardApiKey, float Score);
+
+	/** Drop-in replacement for Steam's StoreStats.
+	 *  Flushes all buffered achievements and scores to Glitch. */
+	UFUNCTION(BlueprintCallable, Category = "Glitch|Steam Bridge",
+		meta=(DisplayName="Steam Bridge: Store Stats"))
+	static void SteamBridgeStoreStats();
 };
