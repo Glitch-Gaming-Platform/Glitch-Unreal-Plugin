@@ -2,6 +2,12 @@
 #include "GlitchAegisSettings.h"
 #include "GlitchSDK.h"
 #include "Engine/Engine.h"
+#include "Engine/GameInstance.h"
+#include "Engine/World.h"
+#include "GameFramework/PlayerController.h"
+#include "TimerManager.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Parse.h"
 
 // ---------------------------------------------------------------------------
 // Resolve the effective install_id for this session.
@@ -94,7 +100,7 @@ void UGlitchAegisSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 			D.GameVersion    = Settings->GameVersion;
 			D.ReferralSource = Settings->ReferralSource;
 
-			const FFingerprintComponents* FPPtr = nullptr;
+			const GlitchSDK::FFingerprintComponents* FPPtr = nullptr;
 			GlitchSDK::FFingerprintComponents FP;
 			if (Settings->bEnableFingerprinting)
 			{
@@ -350,19 +356,21 @@ void UGlitchAegisSubsystem::LoadAchievements()
 					int32 SearchFrom = 0;
 					while (true)
 					{
-						int32 KeyStart = Body.Find(TEXT(""api_key":""), ESearchCase::IgnoreCase, ESearchDir::FromStart, SearchFrom);
+						const FString ApiKeyToken = TEXT("\"api_key\":\"");
+						int32 KeyStart = Body.Find(ApiKeyToken, ESearchCase::IgnoreCase, ESearchDir::FromStart, SearchFrom);
 						if (KeyStart == INDEX_NONE) break;
-						KeyStart += 11; // length of "api_key":"
-						int32 KeyEnd = Body.Find(TEXT("""), ESearchCase::IgnoreCase, ESearchDir::FromStart, KeyStart);
+						KeyStart += ApiKeyToken.Len();
+						int32 KeyEnd = Body.Find(TEXT("\""), ESearchCase::IgnoreCase, ESearchDir::FromStart, KeyStart);
 						if (KeyEnd == INDEX_NONE) break;
 						FString ApiKey = Body.Mid(KeyStart, KeyEnd - KeyStart);
 
-						int32 StatusStart = Body.Find(TEXT(""status":""), ESearchCase::IgnoreCase, ESearchDir::FromStart, KeyEnd);
+						const FString StatusToken = TEXT("\"status\":\"");
+						int32 StatusStart = Body.Find(StatusToken, ESearchCase::IgnoreCase, ESearchDir::FromStart, KeyEnd);
 						FString Status = TEXT("locked");
 						if (StatusStart != INDEX_NONE)
 						{
-							StatusStart += 10;
-							int32 StatusEnd = Body.Find(TEXT("""), ESearchCase::IgnoreCase, ESearchDir::FromStart, StatusStart);
+							StatusStart += StatusToken.Len();
+							int32 StatusEnd = Body.Find(TEXT("\""), ESearchCase::IgnoreCase, ESearchDir::FromStart, StatusStart);
 							if (StatusEnd != INDEX_NONE)
 							{
 								Status = Body.Mid(StatusStart, StatusEnd - StatusStart);

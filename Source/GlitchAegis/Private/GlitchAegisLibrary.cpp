@@ -2,7 +2,11 @@
 #include "GlitchAegisSettings.h"
 #include "GlitchAegisSubsystem.h"
 #include "GlitchSDK.h"
+#include "Engine/Engine.h"
 #include "Engine/GameInstance.h"
+#include "Engine/World.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Parse.h"
 
 // ---------------------------------------------------------------------------
 // Internal helper: retrieve the active install_id for the current session.
